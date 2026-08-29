@@ -30,7 +30,7 @@ struct SoloGameView: View {
                 engine: engine,
                 hintedIDs: hintedIDs,
                 pileFrames: pileFrames,
-                isInteractive: !engine.isFinished
+                isInteractive: !engine.isFinished && !engine.isPaused
             ) { card in
                 engine.select(card)
             }
@@ -38,6 +38,22 @@ struct SoloGameView: View {
                 MismatchExplainer(reasons: engine.mismatchReasons, token: engine.mismatchToken)
                     .padding(.bottom, 6)
             }
+            .overlay {
+                if engine.isPaused {
+                    VStack(spacing: 8) {
+                        Image(systemName: "pause.circle.fill")
+                            .font(.largeTitle)
+                        Text("paused")
+                            .font(.headline)
+                            .textCase(.uppercase)
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(28)
+                    .glassPanel(cornerRadius: 20)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(duration: 0.3), value: engine.isPaused)
             PilesView(engine: engine)
                 .padding(.horizontal, 6)
         }

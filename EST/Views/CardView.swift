@@ -69,6 +69,18 @@ struct SymbolView: View {
     let fill: Card.Fill
     let tint: Card.Tint
 
+    /// Optical size correction. In the same bounding square the areas are
+    /// square 0.99, circle 0.785, triangle 0.433 (in units of side^2), so
+    /// the square reads too big and the triangle too small. Halfway
+    /// correction, circle as reference.
+    private var opticalScale: CGFloat {
+        switch symbol {
+        case .circle: 1
+        case .square: 0.95
+        case .triangle: 1.06
+        }
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let lineWidth = max(1.5, proxy.size.width * 0.09)
@@ -94,6 +106,7 @@ struct SymbolView: View {
                 }
             }
             .padding(lineWidth / 2)
+            .scaleEffect(opticalScale)
         }
         .aspectRatio(1, contentMode: .fit)
     }

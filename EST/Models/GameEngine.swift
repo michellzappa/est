@@ -38,6 +38,8 @@ final class GameEngine {
     private var pauseStart: Date?
     private var pausedTotal: TimeInterval = 0
 
+    var isPaused: Bool { pauseStart != nil }
+
     /// Bumped on every mismatch so views can drive a shake animation.
     private(set) var mismatchToken = 0
     private(set) var lastMismatch: Set<Int> = []

@@ -61,6 +61,14 @@ drive the UI unless asked.
   with exactly these IDs before submission works.
 - Quick 27 is `GameEngine.Variant.quick`: the 27 solid-fill cards, 9 on the
   table. The fill trait is constant there, so the set math is untouched.
+- Trait explanations come from `Card.audit(_:_:_:)`, which returns one
+  `TraitVerdict` per trait. `violationDescriptions` and the tutorial's
+  `TraitAuditView` both read it; do not restate the rule in a view.
+- `TutorialView` is the guided tour (goal, traits, worked set, worked non-set,
+  practice board, table rules). First launch shows it over the title screen,
+  gated by the `hasSeenTutorial` UserDefaults key; the rules sheet replays it.
+  Its practice board uses fixed 92pt cells, not flexible grid columns: a
+  `CardView` inside a `ScrollView` has no reliable height to grow into.
 - Look settings live in `Appearance.shared` (fill style, color theme).
   `Card.Tint.color` delegates to the active theme; never hardcode card colors
   in views. The icon generator script keeps its own baked colors.

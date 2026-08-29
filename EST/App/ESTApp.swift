@@ -20,6 +20,10 @@ struct RootView: View {
     @State private var screen: Screen = .title
     @State private var showMatchmaker = false
     @State private var networkSession: NetworkPartySession?
+    /// First launch opens the tutorial over the title screen. Set once the
+    /// learner finishes or skips it; the rules sheet replays it on demand.
+    @AppStorage("hasSeenTutorial") private var hasSeenTutorial = false
+    @State private var showTutorial = false
 
     var body: some View {
         ZStack {
@@ -60,8 +64,18 @@ struct RootView: View {
             )
             .ignoresSafeArea()
         }
+        .fullScreenCover(isPresented: $showTutorial) {
+            TutorialView {
+                hasSeenTutorial = true
+                showTutorial = false
+            }
+            .interactiveDismissDisabled()
+        }
         .onAppear {
             GameCenterManager.shared.authenticate()
+            if !hasSeenTutorial {
+                showTutorial = true
+            }
         }
     }
 }

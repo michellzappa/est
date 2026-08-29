@@ -136,21 +136,112 @@ struct Card: Identifiable, Hashable {
         return [a, b, completing(a, b)].shuffled()
     }
 
-    /// Why three cards fail, one line per broken trait. A trait breaks only
-    /// as a two-and-one split, so each line reads "pair vs odd one out".
-    static func violationDescriptions(_ a: Card, _ b: Card, _ c: Card) -> [String] {
-        var lines: [String] = []
-        func check(_ label: String, _ values: [String]) {
-            guard Set(values).count == 2 else { return }
-            let pair = values.first { v in values.filter { $0 == v }.count == 2 }!
-            let odd = values.first { $0 != pair }!
-            lines.append("\(label): \(pair), \(pair) vs \(odd)")
+    /// How one trait behaves across three cards: the three values it takes,
+    /// and whether they satisfy the rule. A trait passes when it is all same
+    /// or all different, and breaks only as a two-and-one split.
+    struct TraitVerdict: Identifiable {
+        enum Outcome {
+            case allSame, allDifferent, twoAndOne
         }
-        check("count", [a, b, c].map { String($0.count) })
-        check("color", [a, b, c].map(\.tint.name))
-        check("shape", [a, b, c].map(\.symbol.name))
-        check("fill", [a, b, c].map(\.fill.name))
-        return lines
+
+        let label: String
+        let values: [String]
+        let outcome: Outcome
+
+        var id: String { label }
+        var isValid: Bool { outcome != .twoAndOne }
+
+        /// The values as a phrase: "all red", "red, blue, yellow", or
+        /// "red, red vs blue" for the split that breaks a set.
+        var summary: String {
+            switch outcome {
+            case .allSame:
+                return "all \(values[0])"
+            case .allDifferent:
+                return values.joined(separator: ", ")
+            case .twoAndOne:
+                let pair = values.first { v in values.filter { $0 == v }.count == 2 }!
+                let odd = values.first { $0 != pair }!
+                return "\(pair), \(pair) vs \(odd)"
+            }
+        }
+
+        var outcomeName: String {
+            switch outcome {
+            case .allSame: "all same"
+            case .allDifferent: "all different"
+            case .twoAndOne: "two and one"
+            }
+        }
+    }
+
+    /// Per-trait verdicts for three cards, always in the order count, color,
+    /// shape, fill. `isValidSet` is exactly "no verdict is two-and-one"; the
+    /// mismatch toast and the tutorial both read this.
+    static func audit(_ a: Card, _ b: Card, _ c: Card) -> [TraitVerdict] {
+        let trio = [a, b, c]
+        func verdict(_ label: String, _ values: [String]) -> TraitVerdict {
+            let distinct = Set(values).count
+            let outcome: TraitVerdict.Outcome = switch distinct {
+            case 1: .allSame
+            case 3: .allDifferent
+            default: .twoAndOne
+            }
+            return TraitVerdict(label: label, values: values, outcome: outcome)
+        }
+        return [
+            verdict("count", trio.map { String($0.count) }),
+            verdict("color", trio.map(\.tint.name)),
+            verdict("shape", trio.map(\.symbol.name)),
+            verdict("fill", trio.map(\.fill.name))
+        ]
+    }
+
+    /// Why three cards fail, one line per broken trait.
+    static func violationDescriptions(_ a: Card, _ b: Card, _ c: Card) -> [String] {
+        audit(a, b, c)
+            .filter { !$0.isValid }
+            .map { "\($0.label): \($0.summary)" }
+    }
+
+    /// A trio that breaks on exactly one trait: the clearest counter-example
+    /// to show a learner. Takes a valid set and nudges one card's value on a
+    /// trait the set holds constant. That trait becomes a two-and-one split,
+    /// the other three stay intact, and the three cards stay distinct.
+    /// A set with no constant trait varies all four, so nudging any trait is
+    /// safe there too.
+    static func nearMissTrio() -> [Card] {
+        let set = randomValidSet()
+        let a = set[0], b = set[1], c = set[2]
+        let index = (0..<4).first { a.trits[$0] == b.trits[$0] } ?? 1
+        var trits = c.trits
+        trits[index] = (trits[index] + 1) % 3
+        let broken = Card(
+            count: trits[0] + 1,
+            tint: Tint(rawValue: trits[1])!,
+            symbol: Symbol(rawValue: trits[2])!,
+            fill: Fill(rawValue: trits[3])!
+        )
+        return [a, b, broken].shuffled()
+    }
+
+    /// A small teaching board: exactly one set hides among `size` cards.
+    /// Grows a known set with cards that add no second set.
+    static func practiceBoard(size: Int = 6) -> [Card] {
+        for _ in 0..<40 {
+            var cards = randomValidSet()
+            for card in fullDeck.shuffled() where cards.count < size {
+                guard !cards.contains(card) else { continue }
+                let candidate = cards + [card]
+                if countSets(in: candidate) == 1 {
+                    cards = candidate
+                }
+            }
+            if cards.count == size {
+                return cards.shuffled()
+            }
+        }
+        return randomValidSet()
     }
 
     /// How many valid sets `cards` contain. Each set is met once per pair,
