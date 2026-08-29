@@ -73,34 +73,26 @@ struct TitleView: View {
                 HStack(spacing: 12) {
                     Button(action: onSolo) {
                         Label("Solo 81", systemImage: "timer")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
 
                     Button(action: onQuickSolo) {
                         Label("Quick 27", systemImage: "bolt.fill")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
                 }
 
                 Button {
                     onParty(2)
                 } label: {
                     Label("Duel, one phone", systemImage: "person.2.fill")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+                .buttonStyle(.game(.secondary, tint: .red))
 
                 Button(action: onOnlineParty) {
                     Label("Duel, online or nearby", systemImage: "antenna.radiowaves.left.and.right")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+                .buttonStyle(.game(.secondary, tint: .red))
                 .disabled(!GameCenterManager.shared.isAuthenticated)
 
                 HStack(spacing: 12) {
@@ -108,26 +100,23 @@ struct TitleView: View {
                         showRules = true
                     } label: {
                         Label("Rules", systemImage: "questionmark.circle")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.game(.quiet, size: .compact))
 
                     Button {
                         GameCenterManager.shared.showLeaderboard()
                     } label: {
                         Label("Leaderboard", systemImage: "trophy")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.game(.quiet, size: .compact))
                     .disabled(!GameCenterManager.shared.isAuthenticated)
 
                     Button {
                         showSettings = true
                     } label: {
                         Image(systemName: "gearshape")
-                            .frame(maxWidth: 44)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.game(.quiet, size: .icon))
                 }
             }
             .padding(.horizontal, 32)
@@ -173,10 +162,8 @@ struct RulesView: View {
                         showTutorial = true
                     } label: {
                         Label("Walk me through it", systemImage: "graduationcap")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
 
                     Text("A guided tour with worked examples and a practice board. The text below is the short reference.")
                         .font(.caption)

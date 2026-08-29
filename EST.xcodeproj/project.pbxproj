@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		19F857283673B6F32580E101 /* GlassHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39519372647DA3AAD6D6D3DC /* GlassHelpers.swift */; };
+		1DF91BEEE29C8F8561882BF3 /* ButtonStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478B5F591DAF9298847AD96C /* ButtonStyles.swift */; };
 		272C76944CA31B9085571EED /* PilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 299F58ECE893660C9BEABFEB /* PilesView.swift */; };
 		2ABFA390D123F89E68E36C7A /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96064612A09AED61D2C9827D /* Appearance.swift */; };
 		34D5EEDF027658B338D7B528 /* TitleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2477202E22AC8D7CB6C56AC /* TitleView.swift */; };
@@ -35,13 +36,14 @@
 		16F37FAA2DCF8DD1E0761D68 /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
 		299F58ECE893660C9BEABFEB /* PilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilesView.swift; sourceTree = "<group>"; };
 		2B10BBBD73B61C9E649C8A41 /* EST.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EST.entitlements; sourceTree = "<group>"; };
-		315EDDEAAD8AC89CBE742294 /* EST.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EST.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		315EDDEAAD8AC89CBE742294 /* EST.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = EST.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3403B1A46938054B8158671C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		39519372647DA3AAD6D6D3DC /* GlassHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassHelpers.swift; sourceTree = "<group>"; };
 		41A1D2288F1C5BD10CE53315 /* PartyGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartyGameView.swift; sourceTree = "<group>"; };
 		43E284F52D483EBE2365BB91 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
 		4668A9FEC3F66FFB59730F80 /* SoloGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoloGameView.swift; sourceTree = "<group>"; };
 		472C464CD1AE63569E3EA136 /* CardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardView.swift; sourceTree = "<group>"; };
+		478B5F591DAF9298847AD96C /* ButtonStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonStyles.swift; sourceTree = "<group>"; };
 		6011EC1C471715E4279A1806 /* ConfettiView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfettiView.swift; sourceTree = "<group>"; };
 		66EBEEB06BF708F78BF96466 /* Card.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Card.swift; sourceTree = "<group>"; };
 		7F02BA8AC44B573528AA6140 /* MathVisualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathVisualizerView.swift; sourceTree = "<group>"; };
@@ -113,6 +115,7 @@
 			isa = PBXGroup;
 			children = (
 				E48C5C1346BE0394E6087B18 /* BoardGridView.swift */,
+				478B5F591DAF9298847AD96C /* ButtonStyles.swift */,
 				472C464CD1AE63569E3EA136 /* CardView.swift */,
 				6011EC1C471715E4279A1806 /* ConfettiView.swift */,
 				39519372647DA3AAD6D6D3DC /* GlassHelpers.swift */,
@@ -182,6 +185,11 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					5588DC9F0D158AC0C978EB6E = {
+						DevelopmentTeam = "";
+					};
+				};
 			};
 			buildConfigurationList = 8666970CABBC9FE4B0036928 /* Build configuration list for PBXProject "EST" */;
 			developmentRegion = en;
@@ -220,6 +228,7 @@
 			files = (
 				2ABFA390D123F89E68E36C7A /* Appearance.swift in Sources */,
 				FCD70564F92D59107E55E7B4 /* BoardGridView.swift in Sources */,
+				1DF91BEEE29C8F8561882BF3 /* ButtonStyles.swift in Sources */,
 				5ECD3365B2D09F4AFC428759 /* Card.swift in Sources */,
 				F4E47310C18E6EF77B70EAD8 /* CardView.swift in Sources */,
 				C549C81CCF60B4E5483034C0 /* ConfettiView.swift in Sources */,
@@ -308,8 +317,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EST/EST.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 14;
-				DEVELOPMENT_TEAM = 992N457T8D;
+				CURRENT_PROJECT_VERSION = 15;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = EST;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -331,8 +339,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EST/EST.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 14;
-				DEVELOPMENT_TEAM = 992N457T8D;
+				CURRENT_PROJECT_VERSION = 15;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = EST;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -234,24 +234,21 @@ struct SoloGameOverView: View {
                     .foregroundStyle(.orange)
             }
 
-            VStack(spacing: 12) {
-                Button(action: onPlayAgain) {
-                    Text("Play Again")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
+            VStack(spacing: 10) {
+                Button("Play Again", action: onPlayAgain)
+                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
 
                 if GameCenterManager.shared.isAuthenticated {
                     Button("Leaderboard") {
                         GameCenterManager.shared.showLeaderboard(id: leaderboardID)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.game(.secondary, tint: .yellow))
                 }
 
                 Button("Menu", action: onExit)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.game(.quiet))
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, 24)
         }
         .padding(32)
         .glassPanel(cornerRadius: 24)

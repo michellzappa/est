@@ -39,6 +39,12 @@ drive the UI unless asked.
   deal; input is blocked meanwhile and the solo clock ends at the final match
   moment, not after its celebration. `onAutoAdvance` fires after the engine
   advances on its own — the network host rebroadcasts there.
+- Buttons: every control the player taps uses `GameButtonStyle` through
+  `.buttonStyle(.game(role, tint:, size:))` in `ButtonStyles.swift`. Three
+  rules: one `.primary` per screen, tints come from `Card.Tint` (never the
+  system accent, so themes restyle the buttons with the cards), and a row is
+  one size so it cannot taper or wrap. Do not use `.bordered` or
+  `.borderedProminent` in game UI. Settings is a Form and keeps native rows.
 - Liquid Glass: use the `glassPanel`/`glassButtonSurface` helpers in
   `GlassHelpers.swift` (iOS 26 glass, material fallback). Do not call
   `glassEffect` directly elsewhere.
@@ -67,8 +73,10 @@ drive the UI unless asked.
 - `TutorialView` is the guided tour (goal, traits, worked set, worked non-set,
   practice board, table rules). First launch shows it over the title screen,
   gated by the `hasSeenTutorial` UserDefaults key; the rules sheet replays it.
-  Its practice board uses fixed 92pt cells, not flexible grid columns: a
-  `CardView` inside a `ScrollView` has no reliable height to grow into.
+  Every card it draws is `TutorialView.cardSide`, on every step: fixed cells,
+  not flexible grid columns, because a `CardView` inside a `ScrollView` has no
+  reliable height to grow into, and a card that changes size between steps
+  reads as a different kind of thing.
 - Look settings live in `Appearance.shared` (fill style, color theme).
   `Card.Tint.color` delegates to the active theme; never hardcode card colors
   in views. The icon generator script keeps its own baked colors.

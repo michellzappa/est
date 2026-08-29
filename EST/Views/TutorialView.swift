@@ -23,6 +23,10 @@ struct TutorialView: View {
     @State private var practiceHint: Set<Int> = []
 
     private static let stepCount = 6
+    /// Every card the tutorial draws is this size, on every step. A card that
+    /// changes size between steps reads as a different kind of thing.
+    private static let cardSide: CGFloat = 92
+    private static let cardGap: CGFloat = 10
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,8 +58,7 @@ struct TutorialView: View {
             Spacer()
 
             Button("Skip", action: onFinish)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.game(.quiet, size: .inline))
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
@@ -74,8 +77,7 @@ struct TutorialView: View {
                     Button("Back") {
                         withAnimation(.spring(duration: 0.35)) { step -= 1 }
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .buttonStyle(.game(.quiet, size: .large))
                 }
                 if step == 4 {
                     Button {
@@ -83,8 +85,7 @@ struct TutorialView: View {
                     } label: {
                         Label("Hint", systemImage: "lightbulb")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
                     .disabled(practiceSolved)
                 }
                 Button(step == Self.stepCount - 1 ? "Play" : "Next") {
@@ -94,9 +95,7 @@ struct TutorialView: View {
                         withAnimation(.spring(duration: 0.35)) { step += 1 }
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.game(.primary, tint: .blue, size: .large))
                 .disabled(step == 4 && !practiceSolved)
             }
         }
@@ -126,7 +125,7 @@ struct TutorialView: View {
             Text("Three cards. One rule.")
                 .font(.title3.weight(.semibold))
 
-            cardRow(validExample, height: 88)
+            cardRow(validExample)
 
             Text("these three are a set")
                 .font(.caption)
@@ -174,7 +173,7 @@ struct TutorialView: View {
             heading("A set passes on all four", "Check the traits one at a time. Every one must be all same or all different.")
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            cardRow(validExample, height: 84)
+            cardRow(validExample)
 
             TraitAuditView(cards: validExample)
                 .padding(16)
@@ -193,7 +192,7 @@ struct TutorialView: View {
             heading("One broken trait is enough", "These three cards look close. Run the same four checks.")
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            cardRow(nearMissExample, height: 84)
+            cardRow(nearMissExample)
 
             TraitAuditView(cards: nearMissExample)
                 .padding(16)
@@ -216,16 +215,16 @@ struct TutorialView: View {
             // Fixed cells rather than flexible ones: the board sits inside a
             // ScrollView, where a square that sizes itself off the proposed
             // width has no reliable height to grow into.
-            VStack(spacing: Self.practiceGap) {
+            VStack(spacing: Self.cardGap) {
                 ForEach(0..<2, id: \.self) { row in
-                    HStack(spacing: Self.practiceGap) {
+                    HStack(spacing: Self.cardGap) {
                         ForEach(0..<3, id: \.self) { column in
                             let index = row * 3 + column
                             if index < practiceCards.count {
                                 practiceCell(practiceCards[index])
                             } else {
                                 Color.clear
-                                    .frame(width: Self.practiceSide, height: Self.practiceSide)
+                                    .frame(width: Self.cardSide, height: Self.cardSide)
                             }
                         }
                     }
@@ -268,12 +267,9 @@ struct TutorialView: View {
 
     // MARK: - Practice logic
 
-    private static let practiceSide: CGFloat = 92
-    private static let practiceGap: CGFloat = 10
-
     private func practiceCell(_ card: Card) -> some View {
         CardView(card: card, isSelected: practiceSelection.contains(card))
-            .frame(width: Self.practiceSide, height: Self.practiceSide)
+            .frame(width: Self.cardSide, height: Self.cardSide)
             .overlay {
                 if practiceHint.contains(card.id) {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -342,15 +338,15 @@ struct TutorialView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func cardRow(_ cards: [Card], height: CGFloat) -> some View {
-        HStack(spacing: 12) {
+    private func cardRow(_ cards: [Card]) -> some View {
+        HStack(spacing: Self.cardGap) {
             ForEach(cards) { card in
                 CardView(card: card)
+                    .frame(width: Self.cardSide, height: Self.cardSide)
                     .transition(.scale(scale: 0.7).combined(with: .opacity))
                     .id(card.id)
             }
         }
-        .frame(height: height)
     }
 
     private func traitRow(_ label: String, _ detail: String, _ cards: [Card]) -> some View {
@@ -362,12 +358,12 @@ struct TutorialView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: 8) {
+            HStack(spacing: Self.cardGap) {
                 ForEach(cards) { card in
                     CardView(card: card)
+                        .frame(width: Self.cardSide, height: Self.cardSide)
                 }
             }
-            .frame(height: 58)
         }
     }
 
@@ -392,9 +388,8 @@ struct TutorialView: View {
             withAnimation(.spring(duration: 0.4)) { action() }
         } label: {
             Label(title, systemImage: "arrow.triangle.2.circlepath")
-                .font(.subheadline)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.game(.quiet, size: .inline))
     }
 }
 

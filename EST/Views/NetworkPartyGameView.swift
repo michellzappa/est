@@ -227,7 +227,8 @@ struct NetworkPartyGameView: View {
                 VaryingTitleView(fontSize: 40)
                 content()
                 Button("Menu", action: exit)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                    .padding(.horizontal, 24)
             }
             .padding(32)
             .glassPanel(cornerRadius: 24)
