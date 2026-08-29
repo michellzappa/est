@@ -231,7 +231,7 @@ struct NetworkPartyGameView: View {
                     .padding(.horizontal, 24)
             }
             .padding(32)
-            .glassPanel(cornerRadius: 24)
+            .glassCard(cornerRadius: 24)
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

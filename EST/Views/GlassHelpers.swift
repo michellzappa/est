@@ -15,6 +15,18 @@ extension View {
         }
     }
 
+    /// A panel that must stay readable over confetti and the live board.
+    /// Glass alone lets the board show through the text, so this lays an
+    /// opaque scrim under it. Use it for end cards, `glassPanel` elsewhere.
+    @ViewBuilder
+    func glassCard(cornerRadius: CGFloat = 24) -> some View {
+        self.glassPanel(cornerRadius: cornerRadius)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color(.systemBackground).opacity(0.85))
+            )
+    }
+
     /// Tinted, press-responsive glass for the buzz buttons.
     @ViewBuilder
     func glassButtonSurface(tint: Color, opacity: Double, cornerRadius: CGFloat = 16) -> some View {

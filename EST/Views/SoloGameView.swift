@@ -202,7 +202,7 @@ struct SoloGameOverView: View {
         VStack(spacing: 20) {
             VaryingTitleView(fontSize: 40)
             Text("complete")
-                .font(.caption)
+                .font(.caption.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
 
@@ -211,26 +211,28 @@ struct SoloGameOverView: View {
                 .monospacedDigit()
 
             Text("\(setsFound) sets, about \(String(format: "%.0f", time / Double(max(1, setsFound)))) seconds each")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.subheadline)
+                .foregroundStyle(Color.primary.opacity(0.85))
 
             // The zero-sum fact: the leftover always sums to zero, and a
             // leftover with no set is a cap. Never exactly 3 cards.
             Text(leftover == 0
                 ? "perfect clear, all \(totalCards) cards played"
                 : "the last \(leftover) cards hide no set (a \(leftover)-card cap)")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
 
             if bestTime > 0 {
+                // A personal best is the good news on the card, so it reads
+                // as a highlight rather than as another gray footnote.
                 Text(time <= bestTime ? "new personal best" : "best: \(TimeFormat.clock(bestTime))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(time <= bestTime ? Card.Tint.yellow.color : Color.primary.opacity(0.85))
             }
 
             if hintUsed {
                 Label("hints used, not submitted to leaderboard", systemImage: "lightbulb.fill")
-                    .font(.caption)
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(.orange)
             }
 
@@ -251,7 +253,7 @@ struct SoloGameOverView: View {
             .padding(.horizontal, 24)
         }
         .padding(32)
-        .glassPanel(cornerRadius: 24)
+        .glassCard(cornerRadius: 24)
         .padding(24)
         .transition(.scale(scale: 0.85).combined(with: .opacity))
     }

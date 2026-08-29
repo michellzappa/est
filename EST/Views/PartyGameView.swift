@@ -220,7 +220,7 @@ private struct PartyGameOverView: View {
                 .padding(.horizontal, 24)
         }
         .padding(32)
-        .glassPanel(cornerRadius: 24)
+        .glassCard(cornerRadius: 24)
         .padding(24)
         .transition(.scale(scale: 0.85).combined(with: .opacity))
     }

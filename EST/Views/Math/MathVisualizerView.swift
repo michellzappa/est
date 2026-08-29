@@ -142,13 +142,14 @@ struct MathVisualizerView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
+                        .glassButtonSurface(
+                            tint: trait.accent(for: value).color,
+                            opacity: 0.12,
+                            cornerRadius: 14
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .glassButtonSurface(
-                        tint: trait.accent(for: value).color,
-                        opacity: 0.12,
-                        cornerRadius: 14
-                    )
                     .accessibilityLabel("\(trait.label) trit \(value)")
                     .accessibilityHint("cycles from zero to two")
                 }
