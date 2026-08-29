@@ -32,6 +32,9 @@ struct NetSnapshot: Codable {
     var selectedIDs: [Int]
     var mismatchIDs: [Int]
     var mismatchToken: Int
+    var mismatchReasons: [String]
+    var celebrationIDs: [Int]
+    var matchToken: Int
     var deckCount: Int
     var doneCount: Int
     var doneTopID: Int?

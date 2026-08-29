@@ -2,7 +2,8 @@ import SwiftUI
 import GameKit
 
 /// Wraps GKMatchmakerViewController: Game Center's own UI for inviting
-/// friends, nearby players, or auto-matching. 2-4 players.
+/// friends, nearby players, or auto-matching. Head-to-head only; the models
+/// support up to 4 players if that ever changes.
 struct MatchmakerView: UIViewControllerRepresentable {
     var onMatch: (GKMatch) -> Void
     var onDismiss: () -> Void
@@ -10,7 +11,7 @@ struct MatchmakerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> GKMatchmakerViewController {
         let request = GKMatchRequest()
         request.minPlayers = 2
-        request.maxPlayers = 4
+        request.maxPlayers = 2
         let controller = GKMatchmakerViewController(matchRequest: request)!
         controller.matchmakerDelegate = context.coordinator
         return controller

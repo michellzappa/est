@@ -4,6 +4,8 @@ import SwiftUI
 /// score chips up top; your buzz button sits at the bottom.
 struct NetworkPartyGameView: View {
     let session: NetworkPartySession
+    @State private var pileFrames = PileFrames()
+    @State private var showExitConfirm = false
     var onExit: () -> Void
 
     var body: some View {
@@ -11,7 +13,13 @@ struct NetworkPartyGameView: View {
             opponentsRow
 
             HStack {
-                Button(action: exit) {
+                Button {
+                    if session.isFinished || session.someoneLeft {
+                        exit()
+                    } else {
+                        showExitConfirm = true
+                    }
+                } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
                         .foregroundStyle(.secondary)
@@ -19,9 +27,6 @@ struct NetworkPartyGameView: View {
                 Spacer()
                 statusLabel
                 Spacer()
-                Text("\(session.deckCount) left")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 4)
 
@@ -30,6 +35,9 @@ struct NetworkPartyGameView: View {
                 selectedIDs: session.selectedIDs,
                 mismatchIDs: session.mismatchIDs,
                 mismatchToken: session.mismatchToken,
+                celebrationIDs: session.celebrationIDs,
+                collectedCount: session.doneCount,
+                pileFrames: pileFrames,
                 isInteractive: session.activePlayerID == session.localID && !session.isFinished
             ) { card in
                 session.selectLocal(card)
@@ -43,6 +51,13 @@ struct NetworkPartyGameView: View {
                         .allowsHitTesting(false)
                 }
             }
+            .overlay(alignment: .bottom) {
+                MismatchExplainer(
+                    reasons: session.mismatchReasons,
+                    token: session.mismatchToken
+                )
+                .padding(.bottom, 6)
+            }
 
             HStack(spacing: 16) {
                 PilesView(
@@ -54,9 +69,19 @@ struct NetworkPartyGameView: View {
             }
         }
         .padding()
+        .coordinateSpace(name: "game")
+        .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
         .background(Color(.systemGroupedBackground))
-        .sensoryFeedback(.success, trigger: session.doneCount)
+        .confirmationDialog("Leave the match?", isPresented: $showExitConfirm, titleVisibility: .visible) {
+            Button("Leave Match", role: .destructive) { exit() }
+            Button("Keep Playing", role: .cancel) {}
+        } message: {
+            Text("Leaving ends the match for everyone.")
+        }
+        .sensoryFeedback(.success, trigger: session.matchToken)
         .sensoryFeedback(.error, trigger: session.mismatchToken)
+        .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: session.activePlayerID)
+        .sensoryFeedback(.success, trigger: session.isFinished)
         .overlay {
             if session.someoneLeft {
                 endCard {
@@ -64,7 +89,7 @@ struct NetworkPartyGameView: View {
                         .font(.headline)
                 }
             } else if session.isFinished {
-                endCard {
+                endCard(celebratory: true) {
                     let winners = session.winners
                     Text(winners.count == 1 ? "\(winners[0].name) wins" : "draw")
                         .font(.system(size: 30, weight: .black, design: .rounded))
@@ -161,9 +186,10 @@ struct NetworkPartyGameView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(color.opacity(isActive ? 1 : isLocked ? 0.25 : 0.85))
+                .glassButtonSurface(
+                    tint: color,
+                    opacity: isActive ? 1 : isLocked ? 0.25 : 0.85,
+                    cornerRadius: 16
                 )
                 .foregroundStyle(.white)
             }
@@ -188,16 +214,26 @@ struct NetworkPartyGameView: View {
         .padding(.horizontal, 24)
     }
 
-    private func endCard(@ViewBuilder content: () -> some View) -> some View {
-        VStack(spacing: 20) {
-            VaryingTitleView(fontSize: 40)
-            content()
-            Button("Menu", action: exit)
-                .buttonStyle(.borderedProminent)
+    private func endCard(
+        celebratory: Bool = false,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        ZStack {
+            if celebratory {
+                ConfettiView()
+                    .ignoresSafeArea()
+            }
+            VStack(spacing: 20) {
+                VaryingTitleView(fontSize: 40)
+                content()
+                Button("Menu", action: exit)
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(32)
+            .glassPanel(cornerRadius: 24)
+            .padding(24)
         }
-        .padding(32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .transition(.scale(scale: 0.85).combined(with: .opacity))
     }
 }

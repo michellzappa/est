@@ -12,6 +12,7 @@ import UIKit
 final class GameCenterManager {
     static let shared = GameCenterManager()
     static let soloLeaderboardID = "est.solo.completion.time"
+    static let quickLeaderboardID = "est.quick.completion.time"
 
     private(set) var isAuthenticated = false
     private let dismissDelegate = DismissDelegate()
@@ -35,7 +36,7 @@ final class GameCenterManager {
     }
 
     /// Game Center elapsed-time leaderboards store centiseconds.
-    func submitSoloTime(_ seconds: TimeInterval) {
+    func submitSoloTime(_ seconds: TimeInterval, leaderboardID: String = GameCenterManager.soloLeaderboardID) {
         guard isAuthenticated else { return }
         let centiseconds = Int(seconds * 100)
         Task {
@@ -43,15 +44,15 @@ final class GameCenterManager {
                 centiseconds,
                 context: 0,
                 player: GKLocalPlayer.local,
-                leaderboardIDs: [Self.soloLeaderboardID]
+                leaderboardIDs: [leaderboardID]
             )
         }
     }
 
-    func showLeaderboard() {
+    func showLeaderboard(id: String = GameCenterManager.soloLeaderboardID) {
         guard isAuthenticated else { return }
         let vc = GKGameCenterViewController(
-            leaderboardID: Self.soloLeaderboardID,
+            leaderboardID: id,
             playerScope: .global,
             timeScope: .allTime
         )

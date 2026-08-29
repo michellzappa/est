@@ -4,6 +4,8 @@ import SwiftUI
 /// edge, odd-numbered on the top (their controls render upside down).
 struct PartyGameView: View {
     @State private var session: PartySession
+    @State private var pileFrames = PileFrames()
+    @State private var showExitConfirm = false
     var onExit: () -> Void
 
     init(playerCount: Int, onExit: @escaping () -> Void) {
@@ -24,7 +26,13 @@ struct PartyGameView: View {
             playerRow(topPlayers, flipped: true)
 
             HStack {
-                Button(action: onExit) {
+                Button {
+                    if session.engine.isFinished {
+                        onExit()
+                    } else {
+                        showExitConfirm = true
+                    }
+                } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
                         .foregroundStyle(.secondary)
@@ -32,14 +40,12 @@ struct PartyGameView: View {
                 Spacer()
                 statusLabel
                 Spacer()
-                Text("\(session.engine.deck.count) left")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 4)
 
             BoardGridView(
                 engine: session.engine,
+                pileFrames: pileFrames,
                 isInteractive: session.activePlayerID != nil && !session.engine.isFinished
             ) { card in
                 _ = session.select(card)
@@ -52,13 +58,33 @@ struct PartyGameView: View {
                         .allowsHitTesting(false)
                 }
             }
+            .overlay(alignment: .bottom) {
+                MismatchExplainer(
+                    reasons: session.engine.mismatchReasons,
+                    token: session.engine.mismatchToken
+                )
+                .padding(.bottom, 6)
+            }
+
+            PilesView(engine: session.engine)
+                .padding(.horizontal, 6)
 
             playerRow(bottomPlayers, flipped: false)
         }
         .padding()
+        .coordinateSpace(name: "game")
+        .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
         .background(Color(.systemGroupedBackground))
-        .sensoryFeedback(.success, trigger: session.engine.estsFound)
+        .confirmationDialog("End this game?", isPresented: $showExitConfirm, titleVisibility: .visible) {
+            Button("End Game", role: .destructive) { onExit() }
+            Button("Keep Playing", role: .cancel) {}
+        } message: {
+            Text("Scores are lost.")
+        }
+        .sensoryFeedback(.success, trigger: session.engine.matchToken)
         .sensoryFeedback(.error, trigger: session.engine.mismatchToken)
+        .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: session.activePlayerID)
+        .sensoryFeedback(.success, trigger: session.engine.isFinished)
         .overlay {
             if session.engine.isFinished {
                 PartyGameOverView(session: session, onExit: onExit)
@@ -134,9 +160,10 @@ private struct BuzzButton: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(player.color.opacity(isActive ? 1 : isLocked ? 0.25 : 0.8))
+                .glassButtonSurface(
+                    tint: player.color,
+                    opacity: isActive ? 1 : isLocked ? 0.25 : 0.8,
+                    cornerRadius: 14
                 )
                 .foregroundStyle(.white)
             }
@@ -150,6 +177,22 @@ private struct PartyGameOverView: View {
     let onExit: () -> Void
 
     var body: some View {
+        ZStack {
+            ConfettiView(tints: confettiTints)
+                .ignoresSafeArea()
+            card
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.scale(scale: 0.85).combined(with: .opacity))
+    }
+
+    private var confettiTints: [Card.Tint] {
+        let winnerColors = session.winners.map(\.color)
+        let matching = Card.Tint.allCases.filter { winnerColors.contains($0.color) }
+        return matching.isEmpty ? Card.Tint.allCases : matching
+    }
+
+    private var card: some View {
         VStack(spacing: 20) {
             VaryingTitleView(fontSize: 40)
             let winners = session.winners
@@ -176,7 +219,7 @@ private struct PartyGameOverView: View {
                 .buttonStyle(.borderedProminent)
         }
         .padding(32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .glassPanel(cornerRadius: 24)
         .padding(24)
         .transition(.scale(scale: 0.85).combined(with: .opacity))
     }

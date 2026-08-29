@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		19F857283673B6F32580E101 /* GlassHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39519372647DA3AAD6D6D3DC /* GlassHelpers.swift */; };
 		272C76944CA31B9085571EED /* PilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 299F58ECE893660C9BEABFEB /* PilesView.swift */; };
+		2ABFA390D123F89E68E36C7A /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96064612A09AED61D2C9827D /* Appearance.swift */; };
 		34D5EEDF027658B338D7B528 /* TitleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2477202E22AC8D7CB6C56AC /* TitleView.swift */; };
 		396A787E979D4A51A2C4EF31 /* PartyGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A1D2288F1C5BD10CE53315 /* PartyGameView.swift */; };
 		3AABDEB0CEC2DD196C930785 /* NetMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E3799FD9463E030E3027C6 /* NetMessages.swift */; };
@@ -16,8 +18,10 @@
 		606E52EC6461D1F75B476717 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E284F52D483EBE2365BB91 /* GameCenterManager.swift */; };
 		65C403C001A51B16E9AE77FC /* PartySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90BE598B03AA0E6BB445B6A9 /* PartySession.swift */; };
 		8548D34517850306510158AC /* NetworkPartyGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAA995D31A2630A3B6953886 /* NetworkPartyGameView.swift */; };
+		9B7FAE128876330A4AC34468 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3403B1A46938054B8158671C /* SettingsView.swift */; };
 		A8D040A4698E0B208BF5D8E7 /* MatchmakerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA14A00FCA84303D9FE935EE /* MatchmakerView.swift */; };
 		B751729340CEC69F505EB537 /* SoloGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4668A9FEC3F66FFB59730F80 /* SoloGameView.swift */; };
+		C549C81CCF60B4E5483034C0 /* ConfettiView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6011EC1C471715E4279A1806 /* ConfettiView.swift */; };
 		C5DE2CAFCE70371D04F67B07 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B3476586C0851F24E8E653AB /* Assets.xcassets */; };
 		F4E47310C18E6EF77B70EAD8 /* CardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472C464CD1AE63569E3EA136 /* CardView.swift */; };
 		F836FE52727B691059860707 /* NetworkPartySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2F4EA5D54ED04662EB126AE /* NetworkPartySession.swift */; };
@@ -29,12 +33,16 @@
 		299F58ECE893660C9BEABFEB /* PilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilesView.swift; sourceTree = "<group>"; };
 		2B10BBBD73B61C9E649C8A41 /* EST.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EST.entitlements; sourceTree = "<group>"; };
 		315EDDEAAD8AC89CBE742294 /* EST.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = EST.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3403B1A46938054B8158671C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		39519372647DA3AAD6D6D3DC /* GlassHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassHelpers.swift; sourceTree = "<group>"; };
 		41A1D2288F1C5BD10CE53315 /* PartyGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartyGameView.swift; sourceTree = "<group>"; };
 		43E284F52D483EBE2365BB91 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
 		4668A9FEC3F66FFB59730F80 /* SoloGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoloGameView.swift; sourceTree = "<group>"; };
 		472C464CD1AE63569E3EA136 /* CardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardView.swift; sourceTree = "<group>"; };
+		6011EC1C471715E4279A1806 /* ConfettiView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfettiView.swift; sourceTree = "<group>"; };
 		66EBEEB06BF708F78BF96466 /* Card.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Card.swift; sourceTree = "<group>"; };
 		90BE598B03AA0E6BB445B6A9 /* PartySession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartySession.swift; sourceTree = "<group>"; };
+		96064612A09AED61D2C9827D /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
 		B3476586C0851F24E8E653AB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C4E3799FD9463E030E3027C6 /* NetMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetMessages.swift; sourceTree = "<group>"; };
 		CFFECB55E89D60D1B4C57ED9 /* ESTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESTApp.swift; sourceTree = "<group>"; };
@@ -63,6 +71,7 @@
 		2BACCB27921F1EE91A27CA0F /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				96064612A09AED61D2C9827D /* Appearance.swift */,
 				66EBEEB06BF708F78BF96466 /* Card.swift */,
 				DDA5395FBC02CCAA2D6D1A92 /* GameEngine.swift */,
 				C4E3799FD9463E030E3027C6 /* NetMessages.swift */,
@@ -93,10 +102,13 @@
 			children = (
 				E48C5C1346BE0394E6087B18 /* BoardGridView.swift */,
 				472C464CD1AE63569E3EA136 /* CardView.swift */,
+				6011EC1C471715E4279A1806 /* ConfettiView.swift */,
+				39519372647DA3AAD6D6D3DC /* GlassHelpers.swift */,
 				DA14A00FCA84303D9FE935EE /* MatchmakerView.swift */,
 				FAA995D31A2630A3B6953886 /* NetworkPartyGameView.swift */,
 				41A1D2288F1C5BD10CE53315 /* PartyGameView.swift */,
 				299F58ECE893660C9BEABFEB /* PilesView.swift */,
+				3403B1A46938054B8158671C /* SettingsView.swift */,
 				4668A9FEC3F66FFB59730F80 /* SoloGameView.swift */,
 				F2477202E22AC8D7CB6C56AC /* TitleView.swift */,
 			);
@@ -197,12 +209,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2ABFA390D123F89E68E36C7A /* Appearance.swift in Sources */,
 				FCD70564F92D59107E55E7B4 /* BoardGridView.swift in Sources */,
 				5ECD3365B2D09F4AFC428759 /* Card.swift in Sources */,
 				F4E47310C18E6EF77B70EAD8 /* CardView.swift in Sources */,
+				C549C81CCF60B4E5483034C0 /* ConfettiView.swift in Sources */,
 				FB7FEFF55B4BE791F4FDE614 /* ESTApp.swift in Sources */,
 				606E52EC6461D1F75B476717 /* GameCenterManager.swift in Sources */,
 				4C0A8911E947E1CE42E9AF30 /* GameEngine.swift in Sources */,
+				19F857283673B6F32580E101 /* GlassHelpers.swift in Sources */,
 				A8D040A4698E0B208BF5D8E7 /* MatchmakerView.swift in Sources */,
 				3AABDEB0CEC2DD196C930785 /* NetMessages.swift in Sources */,
 				8548D34517850306510158AC /* NetworkPartyGameView.swift in Sources */,
@@ -210,6 +225,7 @@
 				396A787E979D4A51A2C4EF31 /* PartyGameView.swift in Sources */,
 				65C403C001A51B16E9AE77FC /* PartySession.swift in Sources */,
 				272C76944CA31B9085571EED /* PilesView.swift in Sources */,
+				9B7FAE128876330A4AC34468 /* SettingsView.swift in Sources */,
 				B751729340CEC69F505EB537 /* SoloGameView.swift in Sources */,
 				34D5EEDF027658B338D7B528 /* TitleView.swift in Sources */,
 			);
@@ -281,6 +297,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EST/EST.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 12;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = EST;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -289,6 +306,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.centaur-labs.est";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -301,6 +319,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EST/EST.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 12;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = EST;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -309,6 +328,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.centaur-labs.est";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;

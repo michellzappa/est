@@ -12,7 +12,7 @@ struct ESTApp: App {
 struct RootView: View {
     enum Screen: Equatable {
         case title
-        case solo
+        case solo(GameEngine.Variant)
         case party(Int)
         case networkParty
     }
@@ -26,13 +26,14 @@ struct RootView: View {
             switch screen {
             case .title:
                 TitleView(
-                    onSolo: { screen = .solo },
+                    onSolo: { screen = .solo(.full) },
+                    onQuickSolo: { screen = .solo(.quick) },
                     onParty: { screen = .party($0) },
                     onOnlineParty: { showMatchmaker = true }
                 )
                 .transition(.opacity)
-            case .solo:
-                SoloGameView(onExit: { screen = .title })
+            case .solo(let variant):
+                SoloGameView(variant: variant, onExit: { screen = .title })
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             case .party(let count):
                 PartyGameView(playerCount: count, onExit: { screen = .title })

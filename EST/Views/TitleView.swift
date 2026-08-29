@@ -5,6 +5,9 @@ import SwiftUI
 /// original game).
 struct VaryingTitleView: View {
     var fontSize: CGFloat = 72
+    /// Fired on every letter shuffle so companions (the title screen's demo
+    /// cards) can cycle on the same beat.
+    var onCycle: (() -> Void)? = nil
 
     private static let permutations = ["EST", "TSE", "STE", "ETS", "TES"]
     @State private var index = 0
@@ -23,6 +26,7 @@ struct VaryingTitleView: View {
                 withAnimation(.spring(duration: 0.7)) {
                     index = (index + 1) % Self.permutations.count
                 }
+                onCycle?()
             }
         }
     }
@@ -38,16 +42,23 @@ struct VaryingTitleView: View {
 
 struct TitleView: View {
     var onSolo: () -> Void
+    var onQuickSolo: () -> Void
     var onParty: (Int) -> Void
     var onOnlineParty: () -> Void
 
     @State private var showRules = false
+    @State private var showSettings = false
+    @State private var demoCards = Card.randomValidSet()
 
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
 
-            VaryingTitleView()
+            VaryingTitleView {
+                withAnimation(.spring(duration: 0.7)) {
+                    demoCards = Card.randomValidSet()
+                }
+            }
             Text("81 cards. every combination. find three\nwhere each trait is all same or all different.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
@@ -59,28 +70,33 @@ struct TitleView: View {
             Spacer()
 
             VStack(spacing: 12) {
-                Button(action: onSolo) {
-                    Label("Solo — race the deck", systemImage: "timer")
+                HStack(spacing: 12) {
+                    Button(action: onSolo) {
+                        Label("Solo 81", systemImage: "timer")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+
+                    Button(action: onQuickSolo) {
+                        Label("Quick 27", systemImage: "bolt.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+
+                Button {
+                    onParty(2)
+                } label: {
+                    Label("Duel, one phone", systemImage: "person.2.fill")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .controlSize(.large)
 
-                HStack(spacing: 12) {
-                    ForEach(2...4, id: \.self) { count in
-                        Button {
-                            onParty(count)
-                        } label: {
-                            Label("\(count)", systemImage: "person.\(count).fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                    }
-                }
-
                 Button(action: onOnlineParty) {
-                    Label("Play with friends — online or nearby", systemImage: "antenna.radiowaves.left.and.right")
+                    Label("Duel, online or nearby", systemImage: "antenna.radiowaves.left.and.right")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -104,6 +120,14 @@ struct TitleView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(!GameCenterManager.shared.isAuthenticated)
+
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .frame(maxWidth: 44)
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
             .padding(.horizontal, 32)
@@ -113,6 +137,9 @@ struct TitleView: View {
         .sheet(isPresented: $showRules) {
             RulesView()
         }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
         .onAppear {
             GameCenterManager.shared.setAccessPointVisible(true)
         }
@@ -121,12 +148,14 @@ struct TitleView: View {
         }
     }
 
-    /// A valid EST as a standing example: all traits different on every axis.
+    /// Always a valid EST, re-rolled on the same beat as the name shuffle.
     private var demoRow: some View {
         HStack(spacing: 12) {
-            CardView(card: Card(count: 1, tint: .red, symbol: .circle, fill: .solid))
-            CardView(card: Card(count: 2, tint: .blue, symbol: .square, fill: .striped))
-            CardView(card: Card(count: 3, tint: .yellow, symbol: .triangle, fill: .outline))
+            ForEach(demoCards) { card in
+                CardView(card: card)
+                    .transition(.scale(scale: 0.7).combined(with: .opacity))
+                    .id(card.id)
+            }
         }
         .frame(height: 84)
     }
@@ -141,15 +170,15 @@ struct RulesView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     ruleBlock(
                         "The deck",
-                        "81 cards: every combination of four traits — count (1, 2, 3), color (red, blue, yellow), shape (circle, square, triangle), and fill (solid, striped, outline)."
+                        "81 cards: every combination of four traits. Count (1, 2, 3), color (red, blue, yellow), shape (circle, square, triangle), and fill (solid, translucent, outline)."
                     )
                     ruleBlock(
-                        "A valid EST",
-                        "Three cards where each of the four traits is either the same on all three cards or different on all three. One trait two-and-one? Not an EST."
+                        "A valid set",
+                        "Three cards where each of the four traits is either the same on all three cards or different on all three. One trait two-and-one? Not a set."
                     )
                     ruleBlock(
                         "The table",
-                        "12 cards face up. If no EST exists among them, 3 more are dealt automatically. Find one, tap its three cards, and replacements are dealt."
+                        "12 cards face up. If no set exists among them, 3 more are dealt automatically. Find one, tap its three cards, and replacements are dealt."
                     )
                     ruleBlock(
                         "Solo",
@@ -157,7 +186,11 @@ struct RulesView: View {
                     )
                     ruleBlock(
                         "Party",
-                        "Pass-around play on one phone. See an EST? Hit your button first — you get \(Int(PartySession.claimWindow)) seconds to tap the three cards. Miss or time out: lose a point and sit out briefly."
+                        "Pass-around play on one phone, or across phones over Game Center. See a set? Hit your button first and you get \(Int(PartySession.claimWindow)) seconds to tap the three cards. Miss or time out: lose a point and sit out briefly."
+                    )
+                    ruleBlock(
+                        "About",
+                        "EST is free and open source, made in the spirit of SET, the card game Marsha Falco invented in 1974. We love the original and give copies away often. If you have never played it, buy one. EST is not affiliated with, sponsored by, or endorsed by SET's makers. SET is a registered trademark of Cannei, LLC."
                     )
                 }
                 .padding()

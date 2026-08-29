@@ -33,6 +33,9 @@ final class NetworkPartySession {
     private(set) var selectedIDs: Set<Int> = []
     private(set) var mismatchIDs: Set<Int> = []
     private(set) var mismatchToken = 0
+    private(set) var mismatchReasons: [String] = []
+    private(set) var celebrationIDs: Set<Int> = []
+    private(set) var matchToken = 0
     private(set) var deckCount = 0
     private(set) var doneCount = 0
     private(set) var doneTop: Card?
@@ -72,6 +75,7 @@ final class NetworkPartySession {
         if isHost {
             roster = everyone.map { ($0.gamePlayerID, $0.displayName) }
             for entry in roster { scores[entry.id] = 0 }
+            engine.onAutoAdvance = { [weak self] in self?.publishAndBroadcast() }
             engine.start()
             publishAndBroadcast()
         }
@@ -173,6 +177,9 @@ final class NetworkPartySession {
         selectedIDs = Set(engine.selection.map(\.id))
         mismatchIDs = engine.lastMismatch
         mismatchToken = engine.mismatchToken
+        mismatchReasons = engine.mismatchReasons
+        celebrationIDs = engine.celebrationIDs
+        matchToken = engine.matchToken
         deckCount = engine.deck.count
         doneCount = engine.done.count
         doneTop = engine.done.last
@@ -204,6 +211,9 @@ final class NetworkPartySession {
             selectedIDs: Array(selectedIDs),
             mismatchIDs: Array(mismatchIDs),
             mismatchToken: mismatchToken,
+            mismatchReasons: mismatchReasons,
+            celebrationIDs: Array(celebrationIDs),
+            matchToken: matchToken,
             deckCount: deckCount,
             doneCount: doneCount,
             doneTopID: doneTop?.id,
@@ -259,6 +269,9 @@ final class NetworkPartySession {
         selectedIDs = Set(snapshot.selectedIDs)
         mismatchIDs = Set(snapshot.mismatchIDs)
         mismatchToken = snapshot.mismatchToken
+        mismatchReasons = snapshot.mismatchReasons
+        celebrationIDs = Set(snapshot.celebrationIDs)
+        matchToken = snapshot.matchToken
         deckCount = snapshot.deckCount
         doneCount = snapshot.doneCount
         doneTop = snapshot.doneTopID.map { Card(id: $0) }
