@@ -98,6 +98,10 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Community Pulse") {
+                    CommunityPulseView()
+                }
+
                 Section(
                     content: {
                         Button {
@@ -219,5 +223,176 @@ private struct TelemetryPreviewView: View {
               let value = String(data: data, encoding: .utf8)
         else { return "Preview unavailable." }
         return value
+    }
+}
+
+private struct CommunityPulseView: View {
+    @State private var stats: ESTCommunityStats?
+    @State private var isLoading = false
+
+    var body: some View {
+        Group {
+            if let stats {
+                statsContent(stats)
+            } else if isLoading {
+                HStack {
+                    ProgressView()
+                    Text("Loading community activity…")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Community activity is unavailable", systemImage: "chart.xyaxis.line")
+                    Text("Try again when you have a connection.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("Try again") {
+                        Task { await reload() }
+                    }
+                }
+            }
+        }
+        .task {
+            await reload()
+        }
+    }
+
+    @ViewBuilder
+    private func statsContent(_ stats: ESTCommunityStats) -> some View {
+        if let latest = stats.latest {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(latest.inProgress ? "Week to date" : "Latest reported week")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(latest.period)
+                        .font(.headline)
+                }
+
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        metric("Active devices", latest.reportingDevices)
+                        metric("Games started", latest.activity.gamesStarted)
+                    }
+                    HStack(spacing: 10) {
+                        metric("Games completed", latest.activity.gamesCompleted)
+                        metric("Sets found", latest.activity.setsFound)
+                    }
+                }
+
+                if latest.reportingDevices == nil {
+                    Text("Results appear after at least \(stats.privacy.minimumGroupSize) devices report. Small groups stay withheld.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if !latest.modes.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Mode use")
+                            .font(.subheadline.weight(.semibold))
+                        ForEach(latest.modes) { mode in
+                            HStack {
+                                Text(modeName(mode.name))
+                                Spacer()
+                                Text(mode.percent.map { "\($0)%" } ?? "—")
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+                            .font(.footnote)
+                        }
+                    }
+                }
+
+                recentWeeks(stats.weeklyActive, minimumGroupSize: stats.privacy.minimumGroupSize)
+
+                Button {
+                    Task { await reload() }
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .disabled(isLoading)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Community Pulse is getting started", systemImage: "chart.xyaxis.line")
+                Text("Activity will appear after at least \(stats.privacy.minimumGroupSize) devices have reported.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button {
+                    Task { await reload() }
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .disabled(isLoading)
+            }
+        }
+    }
+
+    private func metric(_ label: String, _ value: Int?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value.map { String($0) } ?? "—")
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private func recentWeeks(
+        _ weeks: [ESTCommunityStats.WeeklyActive],
+        minimumGroupSize: Int
+    ) -> some View {
+        if weeks.count > 1 {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Recent weeks")
+                    .font(.subheadline.weight(.semibold))
+                ForEach(weeks.suffix(8)) { week in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(week.period)
+                            Spacer()
+                            Text(week.count.map { "\($0) active devices" } ?? "Growing")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        if week.count == nil {
+                            Text("Withheld until \(minimumGroupSize) devices report")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("\(week.gamesStarted.map { String($0) } ?? "—") games started · \(week.gamesCompleted.map { String($0) } ?? "—") completed · \(week.setsFound.map { String($0) } ?? "—") sets")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+    }
+
+    private func modeName(_ name: String) -> String {
+        switch name {
+        case "full_solo": return "Full solo"
+        case "quick_solo": return "Quick solo"
+        case "local_duel": return "Local duel"
+        case "network_duel": return "Network duel"
+        default: return name.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    @MainActor
+    private func reload() async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer {
+            isLoading = false
+        }
+        guard let result = try? await ESTCommunityStatsClient.fetch() else { return }
+        stats = result
     }
 }

@@ -10,8 +10,9 @@ turned off at any time.
 At most one aggregate batch per ISO week:
 
 - app version, app build, iOS major version, and coarse device family;
-- counts for launches, mode starts and completions, hints, tutorial views,
-  and leaderboard views during that week;
+- counts for launches, games started and completed, sets found, mode starts
+  and completions, hints, tutorial views, and leaderboard views during that
+  week;
 - coarse feature flags for modes used and current feedback/display settings;
 - a random batch id, a week-scoped HMAC dedupe key, and a cohort word
   (`new`, `returning`, or `reactivated`).
@@ -32,3 +33,13 @@ batch is retained locally for retry; turning diagnostics off deletes it.
 The client contract is [open in the source](../EST/Models/Telemetry.swift), and
 the endpoint can be overridden for development or self-hosting with the
 `estTelemetryEndpoint` UserDefaults key.
+
+## Community Pulse
+
+The app's Settings screen can read a public aggregate from the same service.
+It shows recent active-device counts, games started and completed, sets found,
+and mode adoption. During testing, values are visible once one device reports
+for the period. It does not expose app versions, builds, device families,
+cohorts, or raw batches, so a separate web page is not required for the in-app
+view. Raise the Worker minimum before a public release if cohort privacy is
+required.

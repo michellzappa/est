@@ -102,10 +102,16 @@ struct NetworkPartyGameView: View {
             }
         }
         .onAppear {
+            ESTTelemetry.record(.gamesStarted)
             ESTTelemetry.record(.networkDuelStarted)
+        }
+        .onChange(of: session.matchToken) { oldToken, newToken in
+            guard newToken > oldToken else { return }
+            ESTTelemetry.record(.setFound)
         }
         .onChange(of: session.isFinished) { _, finished in
             if finished {
+                ESTTelemetry.record(.gamesCompleted)
                 ESTTelemetry.record(.networkDuelCompleted)
             }
         }

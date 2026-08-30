@@ -12,6 +12,8 @@ tested with the included StoreKit configuration.
 
 The app does not collect personal data. Optional anonymous diagnostics can be
 disabled in Settings; when enabled, they send one coarse aggregate batch per
-week and never include gameplay events or identifiers. The source code and
-privacy policy are available at:
+week with activity totals such as games started, games completed, and sets
+found, and never include per-game events or identifiers. Settings also includes
+a privacy-thresholded Community Pulse summary. The source code and privacy
+policy are available at:
 https://github.com/michellzappa/est

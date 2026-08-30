@@ -41,9 +41,142 @@ struct ESTTelemetryBatch: Codable, Equatable, Sendable {
     }
 }
 
+/// Public aggregate results returned by the EST telemetry Worker. Every
+/// count or percentage may be withheld when the reporting group is too small.
+struct ESTCommunityStats: Decodable, Sendable {
+    struct Privacy: Decodable, Sendable {
+        let minimumGroupSize: Int
+
+        enum CodingKeys: String, CodingKey {
+            case minimumGroupSize = "minimum_group_size"
+        }
+    }
+
+    struct WeeklyActive: Decodable, Identifiable, Sendable {
+        let period: String
+        let count: Int?
+        let inProgress: Bool
+        let gamesStarted: Int?
+        let gamesCompleted: Int?
+        let setsFound: Int?
+
+        var id: String { period }
+
+        enum CodingKeys: String, CodingKey {
+            case period, count
+            case inProgress = "in_progress"
+            case gamesStarted = "games_started"
+            case gamesCompleted = "games_completed"
+            case setsFound = "sets_found"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            period = try container.decode(String.self, forKey: .period)
+            count = try container.decodeIfPresent(Int.self, forKey: .count)
+            inProgress = try container.decodeIfPresent(
+                Bool.self, forKey: .inProgress) ?? false
+            gamesStarted = try container.decodeIfPresent(
+                Int.self, forKey: .gamesStarted)
+            gamesCompleted = try container.decodeIfPresent(
+                Int.self, forKey: .gamesCompleted)
+            setsFound = try container.decodeIfPresent(
+                Int.self, forKey: .setsFound)
+        }
+    }
+
+    struct CountedItem: Decodable, Identifiable, Sendable {
+        let name: String
+        let count: Int?
+
+        var id: String { name }
+    }
+
+    struct AdoptionItem: Decodable, Identifiable, Sendable {
+        let name: String
+        let percent: Int?
+
+        var id: String { name }
+    }
+
+    struct Activity: Decodable, Sendable {
+        let gamesStarted: Int?
+        let gamesCompleted: Int?
+        let setsFound: Int?
+
+        init(gamesStarted: Int?, gamesCompleted: Int?, setsFound: Int?) {
+            self.gamesStarted = gamesStarted
+            self.gamesCompleted = gamesCompleted
+            self.setsFound = setsFound
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case gamesStarted = "games_started"
+            case gamesCompleted = "games_completed"
+            case setsFound = "sets_found"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            gamesStarted = try container.decodeIfPresent(
+                Int.self, forKey: .gamesStarted)
+            gamesCompleted = try container.decodeIfPresent(
+                Int.self, forKey: .gamesCompleted)
+            setsFound = try container.decodeIfPresent(
+                Int.self, forKey: .setsFound)
+        }
+    }
+
+    struct Latest: Decodable, Sendable {
+        let period: String
+        let inProgress: Bool
+        let reportingDevices: Int?
+        let activity: Activity
+        let modes: [AdoptionItem]
+
+        enum CodingKeys: String, CodingKey {
+            case period
+            case inProgress = "in_progress"
+            case reportingDevices = "reporting_devices"
+            case activity, modes
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            period = try container.decode(String.self, forKey: .period)
+            inProgress = try container.decodeIfPresent(
+                Bool.self, forKey: .inProgress) ?? false
+            reportingDevices = try container.decodeIfPresent(
+                Int.self, forKey: .reportingDevices)
+            activity = try container.decodeIfPresent(
+                Activity.self, forKey: .activity)
+                ?? Activity(gamesStarted: nil, gamesCompleted: nil, setsFound: nil)
+            modes = try container.decodeIfPresent(
+                [AdoptionItem].self, forKey: .modes) ?? []
+        }
+    }
+
+    let schema: Int
+    let generatedOn: String
+    let privacy: Privacy
+    let weeklyActive: [WeeklyActive]
+    let latest: Latest?
+
+    enum CodingKeys: String, CodingKey {
+        case schema
+        case generatedOn = "generated_on"
+        case privacy
+        case weeklyActive = "weekly_active"
+        case latest
+    }
+}
+
 enum ESTTelemetry {
     enum Event: String, CaseIterable {
         case launch = "launches"
+        case gamesStarted = "games_started"
+        case gamesCompleted = "games_completed"
+        case setFound = "sets_found"
         case fullSoloStarted = "full_solo_started"
         case fullSoloCompleted = "full_solo_completed"
         case quickSoloStarted = "quick_solo_started"
@@ -105,6 +238,18 @@ enum ESTTelemetry {
                     && (url.host == "127.0.0.1" || url.host == "localhost"))
         else { return nil }
         return url
+    }
+
+    static var communityEndpoint: URL? {
+        guard let endpoint else { return nil }
+        var components = URLComponents(
+            url: endpoint,
+            resolvingAgainstBaseURL: false
+        )
+        components?.path = "/v1/community"
+        components?.query = nil
+        components?.fragment = nil
+        return components?.url
     }
 
     static var pendingURL: URL {
@@ -317,6 +462,42 @@ enum ESTTelemetry {
             keychainQuery() as CFDictionary,
             [kSecValueData as String: secret] as CFDictionary
         )
+    }
+}
+
+enum ESTCommunityStatsClient {
+    private enum FetchError: Error {
+        case unavailable
+        case invalidResponse
+        case timedOut
+    }
+
+    static func fetch() async throws -> ESTCommunityStats {
+        try await withThrowingTaskGroup(of: ESTCommunityStats.self) { group in
+            group.addTask {
+                guard let endpoint = ESTTelemetry.communityEndpoint else {
+                    throw FetchError.unavailable
+                }
+                var request = URLRequest(url: endpoint)
+                request.httpMethod = "GET"
+                request.timeoutInterval = 8
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse,
+                      (200..<300).contains(http.statusCode)
+                else { throw FetchError.invalidResponse }
+                return try JSONDecoder().decode(ESTCommunityStats.self, from: data)
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(8))
+                throw FetchError.timedOut
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else {
+                throw FetchError.timedOut
+            }
+            return result
+        }
     }
 }
 

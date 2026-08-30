@@ -107,7 +107,7 @@ source file.
 - `EST/Views` contains the SwiftUI screens and reusable card and button views.
 - `ESTUITests` contains the stable screenshot tests used for App Store metadata.
 - `appstore` contains the listing copy, metadata generator, and release assets.
-- `telemetry` contains the opt-in aggregate diagnostics intake Worker and schema.
+- `telemetry` contains the optional aggregate diagnostics intake Worker and schema.
 - `project.yml` is the source of truth for the Xcode project.
 
 ## Contributing
@@ -123,10 +123,11 @@ views use the same rules.
 ## Privacy
 
 EST stores preferences and personal bests on the device. Optional anonymous
-diagnostics send one coarse aggregate batch per week when enabled; they never
-include personal data or gameplay events. Game Center handles its own account,
-leaderboard, and matchmaking data. See the [privacy policy](PRIVACY.md) and
-[telemetry details](docs/telemetry.md).
+diagnostics send one coarse aggregate batch per week when enabled, including
+activity totals such as games started, games completed, and sets found; they
+never include personal data or per-game events. Game Center handles its own
+account, leaderboard, and matchmaking data. See the [privacy policy](PRIVACY.md)
+and [telemetry details](docs/telemetry.md).
 
 ## License
 

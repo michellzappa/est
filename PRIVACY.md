@@ -4,11 +4,12 @@ EST does not collect, sell, or share personal data.
 
 If you leave **Share anonymous diagnostics** enabled in Settings, EST sends at
 most one aggregate product-diagnostics batch per ISO week. It contains the app
-version, iOS major version, coarse mode-usage counts, and a small set of
-feature settings. It does not contain your name, Game Center ID, cards, scores,
-exact times, or gameplay events. The setting is on by default and can be
-turned off at any time; turning it off deletes pending diagnostics and stops
-new collection. See the [telemetry details](docs/telemetry.md).
+version, iOS major version, coarse counts of games started, games completed,
+sets found, mode usage, and a small set of feature settings. It does not
+contain your name, Game Center ID, cards, scores, exact times, or per-game
+events. The setting is on by default and can be turned off at any time; turning
+it off deletes pending diagnostics and stops new collection. See the
+[telemetry details](docs/telemetry.md).
 
 The game stores preferences, personal best times, and aggregate play-style
 learning stats on your device. Play-style stats include counts such as valid

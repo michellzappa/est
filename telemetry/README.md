@@ -23,5 +23,9 @@ the `estTelemetryEndpoint` UserDefaults key to a loopback HTTP endpoint.
 
 The Worker whitelists every activity and feature key, validates the app
 contract, stores no request headers or IP addresses, and prunes raw batches
-after 180 days. There is no public dashboard in this first pass; the stored
-rows are aggregate product diagnostics only.
+after 180 days. `GET /v1/community` exposes only privacy-thresholded
+activity aggregates for the Settings screen: active devices, games started and
+completed, sets found, and mode adoption. The testing configuration shows
+values after one device reports; raise `COMMUNITY_MINIMUM_GROUP_SIZE` before a
+public release if cohort privacy is required. Raw batches and version metadata
+are never returned by that endpoint.

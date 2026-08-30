@@ -95,10 +95,16 @@ struct PartyGameView: View {
             }
         }
         .onAppear {
+            ESTTelemetry.record(.gamesStarted)
             ESTTelemetry.record(.localDuelStarted)
+        }
+        .onChange(of: session.engine.matchToken) { oldToken, newToken in
+            guard newToken > oldToken else { return }
+            ESTTelemetry.record(.setFound)
         }
         .onChange(of: session.engine.isFinished) { _, finished in
             if finished {
+                ESTTelemetry.record(.gamesCompleted)
                 ESTTelemetry.record(.localDuelCompleted)
             }
         }

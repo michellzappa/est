@@ -1,5 +1,6 @@
 const ALLOWED_ACTIVITY = new Set([
   "launches",
+  "games_started", "games_completed", "sets_found",
   "full_solo_started", "full_solo_completed",
   "quick_solo_started", "quick_solo_completed",
   "local_duel_started", "local_duel_completed",
@@ -17,13 +18,19 @@ const ALLOWED_FEATURES = new Set([
 const ALLOWED_COHORTS = new Set(["new", "returning", "reactivated"]);
 const ALLOWED_DEVICE_FAMILIES = new Set(["iphone", "ipad"]);
 const RETENTION_DAYS = 180;
+// EST is currently in testing, so the in-app pulse is visible from one
+// reporting device. Raise this before a public release if cohort privacy is
+// required.
+const COMMUNITY_MINIMUM_GROUP_SIZE = 1;
+const COMMUNITY_HISTORY_WEEKS = 12;
 
-function json(body, status = 200) {
+function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      ...extraHeaders,
     },
   });
 }
@@ -109,11 +116,155 @@ function sanitize(payload) {
   return JSON.stringify(safe).length <= 16384 ? safe : null;
 }
 
+function isoWeekPeriod(date) {
+  const thursday = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+  ));
+  const day = thursday.getUTCDay() || 7;
+  thursday.setUTCDate(thursday.getUTCDate() + 4 - day);
+  const year = thursday.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const week = Math.ceil(
+    (((thursday - yearStart) / 86400000) + 1) / 7,
+  );
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
+function readAggregateRows(result) {
+  return (result?.results ?? []).flatMap((row) => {
+    try {
+      const payload = JSON.parse(row.payload);
+      return payload && typeof payload === "object"
+        ? [{ period: row.period, payload }]
+        : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
+function activityTotal(rows, key) {
+  return rows.reduce(
+    (total, row) => total + (Number.isInteger(row.payload.activity?.[key])
+      ? row.payload.activity[key]
+      : 0),
+    0,
+  );
+}
+
+function visible(value, reportingDevices) {
+  return reportingDevices >= COMMUNITY_MINIMUM_GROUP_SIZE ? value : null;
+}
+
+function adoptionPercent(rows, key) {
+  if (rows.length < COMMUNITY_MINIMUM_GROUP_SIZE) return null;
+  const adopters = rows.filter(
+    (row) => (row.payload.activity?.[key] ?? 0) > 0,
+  ).length;
+  return Math.round((adopters / rows.length) * 100);
+}
+
+async function communityStats(env) {
+  const result = await env.DB.prepare(
+    "SELECT period, payload FROM telemetry_batches ORDER BY period"
+  ).all();
+  const rows = readAggregateRows(result);
+  const periods = [...new Set(rows.map((row) => row.period))].sort();
+  const periodsToShow = periods.slice(-COMMUNITY_HISTORY_WEEKS);
+  const currentPeriod = isoWeekPeriod(new Date());
+
+  const weeklyActive = periodsToShow.map((period) => {
+    const periodRows = rows.filter((row) => row.period === period);
+    return {
+      period,
+      count: visible(periodRows.length, periodRows.length),
+      in_progress: period === currentPeriod,
+      games_started: visible(
+        activityTotal(periodRows, "games_started"),
+        periodRows.length,
+      ),
+      games_completed: visible(
+        activityTotal(periodRows, "games_completed"),
+        periodRows.length,
+      ),
+      sets_found: visible(
+        activityTotal(periodRows, "sets_found"),
+        periodRows.length,
+      ),
+    };
+  });
+
+  const latestPeriod = periods.at(-1);
+  if (!latestPeriod) {
+    return {
+      schema: 1,
+      generated_on: new Date().toISOString(),
+      privacy: { minimum_group_size: COMMUNITY_MINIMUM_GROUP_SIZE },
+      weekly_active: weeklyActive,
+      latest: null,
+    };
+  }
+
+  const latestRows = rows.filter((row) => row.period === latestPeriod);
+  const reportingDevices = latestRows.length;
+  return {
+    schema: 1,
+    generated_on: new Date().toISOString(),
+    privacy: { minimum_group_size: COMMUNITY_MINIMUM_GROUP_SIZE },
+    weekly_active: weeklyActive,
+    latest: {
+      period: latestPeriod,
+      in_progress: latestPeriod === currentPeriod,
+      reporting_devices: visible(reportingDevices, reportingDevices),
+      activity: {
+        games_started: visible(
+          activityTotal(latestRows, "games_started"),
+          reportingDevices,
+        ),
+        games_completed: visible(
+          activityTotal(latestRows, "games_completed"),
+          reportingDevices,
+        ),
+        sets_found: visible(
+          activityTotal(latestRows, "sets_found"),
+          reportingDevices,
+        ),
+      },
+      modes: [
+        {
+          name: "full_solo",
+          percent: adoptionPercent(latestRows, "full_solo_started"),
+        },
+        {
+          name: "quick_solo",
+          percent: adoptionPercent(latestRows, "quick_solo_started"),
+        },
+        {
+          name: "local_duel",
+          percent: adoptionPercent(latestRows, "local_duel_started"),
+        },
+        {
+          name: "network_duel",
+          percent: adoptionPercent(latestRows, "network_duel_started"),
+        },
+      ],
+    },
+  };
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ ok: true });
+    }
+    if (request.method === "GET" && url.pathname === "/v1/community") {
+      return json(await communityStats(env), 200, {
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=300",
+      });
     }
     if (request.method !== "POST" || url.pathname !== "/v1/batches") {
       return json({ error: "method_not_allowed" }, 405);

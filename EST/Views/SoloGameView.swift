@@ -151,6 +151,7 @@ struct SoloGameView: View {
                         hintedIDs = []
                         lastMatchElapsed = 0
                         engine.start(variant: variant)
+                        ESTTelemetry.record(.gamesStarted)
                         ESTTelemetry.record(variant == .quick
                             ? .quickSoloStarted
                             : .fullSoloStarted)
@@ -162,6 +163,7 @@ struct SoloGameView: View {
         .onAppear {
             lastMatchElapsed = 0
             engine.start(variant: variant)
+            ESTTelemetry.record(.gamesStarted)
             ESTTelemetry.record(variant == .quick
                 ? .quickSoloStarted
                 : .fullSoloStarted)
@@ -169,10 +171,15 @@ struct SoloGameView: View {
         .onChange(of: engine.table) {
             hintedIDs = []
         }
+        .onChange(of: engine.matchToken) { oldToken, newToken in
+            guard newToken > oldToken else { return }
+            ESTTelemetry.record(.setFound)
+        }
         .onChange(of: engine.isFinished) { _, finished in
             if finished {
                 GameAudio.shared.play(.completion)
                 PlayerStats.shared.recordCompletedRound(variant)
+                ESTTelemetry.record(.gamesCompleted)
                 ESTTelemetry.record(variant == .quick
                     ? .quickSoloCompleted
                     : .fullSoloCompleted)
