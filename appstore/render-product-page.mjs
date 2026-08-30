@@ -86,6 +86,7 @@ const panelHTML = (panel, image) => {
   const frameRadius = geometry.radius;
   const screenRadius = frameRadius - framePadding;
   const screenTop = geometry.screenTop;
+  const type = { ...device.type, ...(panel.type ?? {}) };
   const background = panel.background ?? panel.accent;
   const text = panel.text ?? "#ffffff";
   const highlightText = text === "#ffffff"
@@ -106,8 +107,8 @@ body { font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helveti
   border-radius:50%; background:radial-gradient(circle, rgba(255,255,255,.42) 0%, rgba(255,255,255,.14) 34%, transparent 70%); }
 .panel::after { content:""; position:absolute; width:670px; height:670px; left:-330px; bottom:360px;
   border-radius:50%; border:3px solid rgba(255,255,255,.24); box-shadow:0 0 90px rgba(255,255,255,.14) inset; }
-.copy { position:absolute; z-index:2; top:150px; left:112px; right:112px; }
-h1 { max-width:1090px; margin:0; font:700 142px/1.04 -apple-system, BlinkMacSystemFont, sans-serif;
+.copy { position:absolute; z-index:2; top:${type.copyTop}px; left:${type.copySide}px; right:${type.copySide}px; }
+h1 { max-width:1090px; margin:0; font:700 ${type.headline}px/1.04 -apple-system, BlinkMacSystemFont, sans-serif;
   letter-spacing:-.045em; text-wrap:balance; }
 h1 em { color:${highlightText}; font-style:normal; }
 .device { position:absolute; z-index:1; left:50%; top:${screenTop}px; width:${frameWidth}px; padding:${framePadding}px;
@@ -122,6 +123,21 @@ h1 em { color:${highlightText}; font-style:normal; }
   <div class="device">${source}</div>
 </main></body></html>`;
 };
+
+// A missing capture must never become an uploadable asset. The placeholder
+// exists for design iteration only, and it once produced a full set of blank
+// iPad panels that passed size validation and was ready to upload.
+const allowMissing = process.argv.includes("--allow-missing");
+const missing = config.panels
+  .filter((panel) => !existsSync(join(rawDir, panel.source)))
+  .map((panel) => panel.source);
+if (missing.length && !allowMissing) {
+  throw new Error(
+    `Missing ${missing.length} capture(s) for ${device.key}: ${missing.join(", ")}\n` +
+      `Run appstore/capture.sh ${device.key} ${appearance} first, ` +
+      `or pass --allow-missing to render placeholders for design work.`,
+  );
+}
 
 const browser = await chromium.launch();
 // Render in design space, then let the scale factor produce exact device pixels.

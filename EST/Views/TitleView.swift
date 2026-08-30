@@ -20,6 +20,9 @@ struct VaryingTitleView: View {
                     .foregroundStyle(color(for: letter))
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("EST")
+        .accessibilityAddTraits(.isHeader)
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(7.2))
@@ -51,13 +54,43 @@ struct TitleView: View {
     @State private var showRules = false
     @State private var showPlayStyle = false
     @State private var demoCards = Card.randomValidSet()
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var usesAccessibilityLayout: Bool {
+        dynamicTypeSize.isAccessibilitySize
+    }
 
     var body: some View {
         GeometryReader { proxy in
             let supportsFourPlayerMode = PartySession.supportsFourPlayerMode(in: proxy.size)
 
-            VStack(spacing: 16) {
-            Spacer()
+            Group {
+                if usesAccessibilityLayout {
+                    ScrollView {
+                        titleContent(supportsFourPlayerMode: supportsFourPlayerMode)
+                    }
+                } else {
+                    titleContent(supportsFourPlayerMode: supportsFourPlayerMode)
+                }
+            }
+        }
+        .background(Appearance.shared.gameBackground)
+        .sheet(isPresented: $showRules) {
+            RulesView()
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showPlayStyle) {
+            PlayStyleView()
+        }
+    }
+
+    private func titleContent(supportsFourPlayerMode: Bool) -> some View {
+        VStack(spacing: 16) {
+            if !usesAccessibilityLayout {
+                Spacer()
+            }
 
             VaryingTitleView {
                 withAnimation(.spring(duration: 0.7)) {
@@ -75,103 +108,174 @@ struct TitleView: View {
             demoRow
                 .padding(.vertical, 16)
 
-            Spacer()
+            if !usesAccessibilityLayout {
+                Spacer()
+            }
 
             VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    Button(action: onSolo) {
-                        Label("Solo 81", systemImage: "timer")
-                    }
-                    .buttonStyle(.game(.primary, tint: .second, size: .large))
-
-                    Button(action: onQuickSolo) {
-                        Label("Quick 27", systemImage: "bolt.fill")
-                    }
-                    .buttonStyle(.game(.secondary, tint: .third, size: .large))
-                }
-
-                if supportsFourPlayerMode {
-                    HStack(spacing: 12) {
-                        Button {
-                            onParty(PartySession.minimumPlayerCount)
-                        } label: {
-                            Label("Duel, one phone", systemImage: "person.2.fill")
-                        }
-                        .buttonStyle(.game(.secondary, tint: .first, size: .large))
-
-                        Button {
-                            onParty(PartySession.maximumPlayerCount)
-                        } label: {
-                                Label(
-                                "\(PartySession.maximumPlayerCount) players, \(PartySession.fourPlayerDeviceLabel)",
-                                systemImage: "person.3.fill"
-                            )
-                        }
-                        .buttonStyle(.game(.secondary, tint: .third, size: .large))
-                    }
-                } else {
-                    Button {
-                        onParty(PartySession.minimumPlayerCount)
-                    } label: {
-                        Label("Duel, one phone", systemImage: "person.2.fill")
-                    }
-                    .buttonStyle(.game(.secondary, tint: .first))
-                }
-
-                Button(action: onOnlineParty) {
-                    Label(
-                        supportsFourPlayerMode ? "Party, online or nearby" : "Duel, online or nearby",
-                        systemImage: "antenna.radiowaves.left.and.right"
-                    )
-                }
-                .buttonStyle(.game(.secondary, tint: .first))
-                .disabled(!GameCenterManager.shared.isAuthenticated)
-
-                Button {
-                    showPlayStyle = true
-                } label: {
-                    Label("Your play style", systemImage: "chart.bar.xaxis")
-                }
-                .buttonStyle(.game(.quiet, tint: .second, size: .compact))
-
-                HStack(spacing: 12) {
-                    Button {
-                        showRules = true
-                    } label: {
-                        Label("Rules", systemImage: "questionmark.circle")
-                    }
-                    .buttonStyle(.game(.quiet, size: .compact))
-
-                    Button {
-                        onLeaderboards()
-                    } label: {
-                        Label("Leaderboard", systemImage: "trophy")
-                    }
-                    .buttonStyle(.game(.quiet, size: .compact))
-                    .disabled(!GameCenterManager.shared.isAuthenticated)
-
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .buttonStyle(.game(.quiet, size: .icon))
-                }
+                modeButtons(supportsFourPlayerMode: supportsFourPlayerMode)
+                onlinePartyButton(supportsFourPlayerMode: supportsFourPlayerMode)
+                playStyleButton
+                utilityButtons
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
+        }
+    }
+
+    @ViewBuilder
+    private func modeButtons(supportsFourPlayerMode: Bool) -> some View {
+        if usesAccessibilityLayout {
+            VStack(spacing: 12) {
+                soloButton
+                quickSoloButton
+                if supportsFourPlayerMode {
+                    partyButton(
+                        playerCount: PartySession.minimumPlayerCount,
+                        title: "Duel",
+                        systemImage: "person.2.fill",
+                        tint: .first
+                    )
+                    partyButton(
+                        playerCount: PartySession.maximumPlayerCount,
+                        title: "\(PartySession.maximumPlayerCount) players",
+                        systemImage: "person.3.fill",
+                        tint: .third
+                    )
+                } else {
+                    partyButton(
+                        playerCount: PartySession.minimumPlayerCount,
+                        title: "Duel",
+                        systemImage: "person.2.fill",
+                        tint: .first
+                    )
+                }
+            }
+        } else {
+            HStack(spacing: 12) {
+                soloButton
+                quickSoloButton
+            }
+
+            if supportsFourPlayerMode {
+                HStack(spacing: 12) {
+                    partyButton(
+                        playerCount: PartySession.minimumPlayerCount,
+                        title: "Duel, one phone",
+                        systemImage: "person.2.fill",
+                        tint: .first
+                    )
+                    partyButton(
+                        playerCount: PartySession.maximumPlayerCount,
+                        title: "\(PartySession.maximumPlayerCount) players, \(PartySession.fourPlayerDeviceLabel)",
+                        systemImage: "person.3.fill",
+                        tint: .third
+                    )
+                }
+            } else {
+                partyButton(
+                    playerCount: PartySession.minimumPlayerCount,
+                    title: "Duel, one phone",
+                    systemImage: "person.2.fill",
+                    tint: .first
+                )
             }
         }
-        .background(Appearance.shared.gameBackground)
-        .sheet(isPresented: $showRules) {
-            RulesView()
+    }
+
+    private var soloButton: some View {
+        Button(action: onSolo) {
+            Label("Solo 81", systemImage: "timer")
         }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
+        .buttonStyle(.game(.primary, tint: .second, size: .large))
+    }
+
+    private var quickSoloButton: some View {
+        Button(action: onQuickSolo) {
+            Label("Quick 27", systemImage: "bolt.fill")
         }
-        .sheet(isPresented: $showPlayStyle) {
-            PlayStyleView()
+        .buttonStyle(.game(.secondary, tint: .third, size: .large))
+    }
+
+    private func partyButton(
+        playerCount: Int,
+        title: String,
+        systemImage: String,
+        tint: GameAccent
+    ) -> some View {
+        Button {
+            onParty(playerCount)
+        } label: {
+            Label(title, systemImage: systemImage)
         }
+        .buttonStyle(.game(.secondary, tint: tint, size: .large))
+    }
+
+    private func onlinePartyButton(supportsFourPlayerMode: Bool) -> some View {
+        let title = usesAccessibilityLayout
+            ? (supportsFourPlayerMode ? "Online party" : "Online duel")
+            : (supportsFourPlayerMode ? "Party, online or nearby" : "Duel, online or nearby")
+
+        return Button(action: onOnlineParty) {
+            Label(title, systemImage: "antenna.radiowaves.left.and.right")
+        }
+        .buttonStyle(.game(.secondary, tint: .first))
+        .disabled(!GameCenterManager.shared.isAuthenticated)
+    }
+
+    private var playStyleButton: some View {
+        Button {
+            showPlayStyle = true
+        } label: {
+            Label(usesAccessibilityLayout ? "Play style" : "Your play style", systemImage: "chart.bar.xaxis")
+        }
+        .buttonStyle(.game(.quiet, tint: .second, size: .compact))
+    }
+
+    @ViewBuilder
+    private var utilityButtons: some View {
+        if usesAccessibilityLayout {
+            VStack(spacing: 12) {
+                rulesButton
+                leaderboardButton
+                settingsButton
+            }
+        } else {
+            HStack(spacing: 12) {
+                rulesButton
+                leaderboardButton
+                settingsButton
+            }
+        }
+    }
+
+    private var rulesButton: some View {
+        Button {
+            showRules = true
+        } label: {
+            Label("Rules", systemImage: "questionmark.circle")
+        }
+        .buttonStyle(.game(.quiet, size: .compact))
+    }
+
+    private var leaderboardButton: some View {
+        Button {
+            onLeaderboards()
+        } label: {
+            Label("Leaderboard", systemImage: "trophy")
+        }
+        .buttonStyle(.game(.quiet, size: .compact))
+        .disabled(!GameCenterManager.shared.isAuthenticated)
+    }
+
+    private var settingsButton: some View {
+        Button {
+            showSettings = true
+        } label: {
+            Image(systemName: "gearshape")
+        }
+        .buttonStyle(.game(.quiet, size: .icon))
+        .accessibilityLabel("Settings")
     }
 
     /// Always a valid EST, re-rolled on the same beat as the name shuffle.

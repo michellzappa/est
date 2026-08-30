@@ -76,6 +76,19 @@ struct Card: Identifiable, Hashable {
         (count - 1) * 27 + tint.rawValue * 9 + symbol.rawValue * 3 + fill.rawValue
     }
 
+    /// A complete spoken description of the card. This is deliberately based
+    /// on the four game traits rather than on its numeric ID, so it works as
+    /// both a VoiceOver label and a Voice Control command.
+    var accessibilityDescription: String {
+        let countName = switch count {
+        case 1: "one"
+        case 2: "two"
+        default: "three"
+        }
+        let shapeName = count == 1 ? symbol.name : "\(symbol.name)s"
+        return "\(countName) \(tint.name) \(fill.name) \(shapeName)"
+    }
+
     init(count: Int, tint: Tint, symbol: Symbol, fill: Fill) {
         self.count = count
         self.tint = tint

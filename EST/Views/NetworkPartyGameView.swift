@@ -129,7 +129,7 @@ struct NetworkPartyGameView: View {
             exitButton
             Spacer()
         }
-        .frame(height: GameButtonStyle.Size.icon.height)
+        .frame(minHeight: GameButtonStyle.Size.icon.height)
     }
 
     private var exitButton: some View {
@@ -271,7 +271,7 @@ struct NetworkPartyGameView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .frame(height: GameButtonStyle.Size.large.height)
+                .frame(minHeight: GameButtonStyle.Size.large.height)
                 .glassButtonSurface(
                     tint: color,
                     opacity: isActive ? 1 : isLocked || isUnavailable ? 0.25 : 0.85,
@@ -280,6 +280,8 @@ struct NetworkPartyGameView: View {
                 .foregroundStyle(.white)
             }
             .disabled(!enabled && !isActive)
+            .accessibilityLabel("Your SET")
+            .accessibilityHint("Claim the board before selecting a set")
         }
     }
 

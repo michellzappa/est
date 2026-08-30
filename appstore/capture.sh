@@ -43,6 +43,10 @@ OUT="$ROOT/appstore/raw/$DEVICE/$APPEARANCE"
 rm -rf "$RESULT" "$OUT"
 mkdir -p "$OUT"
 
+# Export attachments even when the test fails. A failed run still holds the
+# captures it managed to take, plus the UI hierarchy at the failure, and that
+# is the only way to diagnose a device-specific break.
+set +e
 xcodebuild test \
   -project EST.xcodeproj \
   -scheme EST \
@@ -50,6 +54,9 @@ xcodebuild test \
   -resultBundlePath "$RESULT" \
   -only-testing:ESTUITests/ScreenshotTests \
   -configuration Debug
+
+TEST_STATUS=$?
+set -e
 
 xcrun xcresulttool export attachments --path "$RESULT" --output-path "$OUT" >/dev/null
 
@@ -78,5 +85,11 @@ for attachment in manifest[0]["attachments"]:
 os.remove(manifest_path)
 print("✓ captured:", ", ".join(sorted(name for name in os.listdir(directory) if name.endswith(".png"))))
 PY
+
+if [ "$TEST_STATUS" -ne 0 ]; then
+  echo "✗ The UI test failed on $DEVICE. Exported whatever it captured to" >&2
+  echo "  appstore/raw/$DEVICE/$APPEARANCE for diagnosis. Do not ship these." >&2
+  exit "$TEST_STATUS"
+fi
 
 echo "✓ raw screenshots → appstore/raw/$DEVICE/$APPEARANCE"

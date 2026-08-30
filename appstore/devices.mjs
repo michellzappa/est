@@ -24,6 +24,7 @@ export const DEVICES = {
     designHeight: 2868,
     // The frame bleeds past the bottom of the canvas on purpose.
     frame: { padding: 24, radius: 158, screenTop: 660, screenWidth: 1040 },
+    type: { headline: 142, copyTop: 150, copySide: 112 },
   },
   ipad13: {
     label: 'iPad 13"',
@@ -36,6 +37,10 @@ export const DEVICES = {
     // An iPad is wider and shorter, so the frame sits higher, stays narrower
     // relative to the canvas, and uses a much smaller corner radius.
     frame: { padding: 22, radius: 92, screenTop: 560, screenWidth: 940 },
+    // The iPad canvas is 1760 design units tall against the iPhone's 2868, so
+    // the shared 142px headline overflows into the frame. Type scales down to
+    // keep the same proportion of the canvas.
+    type: { headline: 104, copyTop: 104, copySide: 104 },
   },
 };
 

@@ -6,11 +6,11 @@
     {
       "id": "solo-81",
       "source": "solo-81.png",
-      "headline": "Clear the deck *against the clock.*",
-      "accent": "#356fe5",
-      "background": "#3d6eeb",
+      "headline": "Twelve cards. *Find the trio.*",
+      "accent": "#e9544d",
+      "background": "#de5147",
       "text": "#ffffff",
-      "alt": "EST Solo 81 game board with twelve cards and a timer"
+      "alt": "EST Solo 81 board with twelve cards and a running timer"
     },
     {
       "id": "rule",
@@ -24,38 +24,37 @@
     {
       "id": "quick-27",
       "source": "quick-27.png",
-      "headline": "Quick game. *Same rule.*",
+      "headline": "Only 27 cards. *A faster round.*",
       "accent": "#efa629",
       "background": "#f0a833",
       "text": "#111111",
-      "alt": "EST Quick 27 game board with solid-fill cards"
+      "alt": "EST Quick 27 board with nine solid-fill cards"
     },
     {
       "id": "duel",
       "source": "duel.png",
-      "headline": "Play *on one phone, two, or four-up on iPad.*",
+      "headline": "See it first. *Hit your button.*",
       "accent": "#e9544d",
       "background": "#de5147",
       "text": "#ffffff",
-      "alt": "EST four-player game board on iPad"
+      "alt": "EST duel board with a buzzer at each end of the screen"
     },
     {
       "id": "rules",
       "source": "rules.png",
-      "headline": "Learn the rule *one step at a time.*",
+      "headline": "Learn the rule *by finding one.*",
       "accent": "#356fe5",
       "background": "#3d6eeb",
       "text": "#ffffff",
-      "alt": "EST How to play rules explainer"
+      "alt": "EST guided tutorial explaining the four traits"
     },
     {
       "id": "mathematics",
       "source": "mathematics.png",
-      "headline": "Every set is a line *in four dimensions.*",
+      "headline": "Cards are points. *Sets are lines.*",
       "accent": "#efa629",
       "background": "#f0a833",
       "text": "#111111",
-      "overrides": { "iphone69": { "screenTop": 720 } },
       "alt": "EST mathematics explorer showing card coordinates and set completion"
     }
   ]

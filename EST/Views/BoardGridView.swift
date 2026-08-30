@@ -139,25 +139,41 @@ struct BoardGridView: View {
                                 let index = row * columns + column
                                 if index < table.count {
                                     let card = table[index]
-                                    CardCell(
-                                        card: card,
-                                        index: index,
-                                        isSelected: selectedIDs.contains(card.id),
-                                        isHinted: hintedIDs.contains(card.id),
-                                        isCelebrating: celebrationIDs.contains(card.id),
-                                        isMismatched: mismatchIDs.contains(card.id),
-                                        mismatchToken: mismatchToken
-                                    )
-                                    .frame(width: side, height: side)
-                                    .onTapGesture {
+                                    let isSelected = selectedIDs.contains(card.id)
+                                    Button {
                                         guard isInteractive else { return }
-                                        if selectedIDs.contains(card.id) {
+                                        if isSelected {
                                             GameAudio.shared.play(.cardDeselected)
                                         } else {
                                             GameAudio.shared.play(.cardSelected(step: selectedIDs.count + 1))
                                         }
                                         onTap(card)
                                     }
+                                    label: {
+                                        CardCell(
+                                            card: card,
+                                            index: index,
+                                            isSelected: isSelected,
+                                            isHinted: hintedIDs.contains(card.id),
+                                            isCelebrating: celebrationIDs.contains(card.id),
+                                            isMismatched: mismatchIDs.contains(card.id),
+                                            mismatchToken: mismatchToken
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .frame(width: side, height: side)
+                                    .accessibilityElement(children: .ignore)
+                                    .accessibilityLabel(
+                                        "\(card.accessibilityDescription), row \(row + 1), column \(column + 1)"
+                                    )
+                                    .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                                    .accessibilityHint(
+                                        isSelected
+                                            ? "Double-tap to deselect this card"
+                                            : "Double-tap to select this card"
+                                    )
+                                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                                    .disabled(!isInteractive)
                                     .transition(.identity)
                                     .id(card.id)
                                 } else {
@@ -180,6 +196,13 @@ struct BoardGridView: View {
                     FlightCardView(flight: flight)
                 }
             }
+            // Fill the reader so the ZStack can center the grid. Without this
+            // the ZStack sizes to the grid and GeometryReader pins it
+            // top-leading. It only shows on iPad, where maximumCardSide caps
+            // the grid far below the available width, leaving the board in the
+            // top-left corner. slotCenter already computes flight coordinates
+            // from the centered origin, so the match animation needs this too.
+            .frame(width: proxy.size.width, height: proxy.size.height)
             .onChange(of: celebrationIDs) { _, ids in
                 guard !ids.isEmpty else { return }
                 GameAudio.shared.play(.validSet)

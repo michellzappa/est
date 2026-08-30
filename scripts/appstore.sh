@@ -108,7 +108,7 @@ setup_app() {
     --content-rights DOES_NOT_USE_THIRD_PARTY_CONTENT \
     --locale en-US \
     --name "EST - Card Trios" \
-    --subtitle "Find the three that fit." \
+    --subtitle "A game of patterns." \
     --privacy-policy-url "https://github.com/michellzappa/est/blob/main/PRIVACY.md"
   # Apple models "Games / Puzzle" as a primary category plus subcategories.
   # PUZZLE is not a top-level category, so it cannot be --secondary.

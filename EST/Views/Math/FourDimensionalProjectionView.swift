@@ -207,8 +207,12 @@ struct FourDimensionalProjectionView: View {
         .buttonStyle(.plain)
         .frame(width: side, height: side)
         .contentShape(Rectangle())
-        .accessibilityLabel("card \(card.id), shape trit \(index / 3), fill trit \(index % 3)")
-        .accessibilityHint("Tap to choose this card")
+        .accessibilityLabel(
+            "\(card.accessibilityDescription), shape row \(index / 3 + 1), fill column \(index % 3 + 1)"
+        )
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint("Double-tap to choose this card")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var instruction: String {

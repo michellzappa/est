@@ -39,4 +39,10 @@ final class CardTests: XCTestCase {
         XCTAssertEqual(verdicts.filter { !$0.isValid }.map(\.label), ["count", "color"])
         XCTAssertEqual(Card.violationDescriptions(first, second, third).count, 2)
     }
+
+    func testAccessibilityDescriptionUsesAllFourTraits() {
+        let card = Card(count: 3, tint: .blue, symbol: .triangle, fill: .solid)
+
+        XCTAssertEqual(card.accessibilityDescription, "three blue solid triangles")
+    }
 }

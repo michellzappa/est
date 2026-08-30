@@ -117,7 +117,7 @@ struct PartyGameView: View {
             exitButton
             Spacer()
         }
-        .frame(height: GameButtonStyle.Size.icon.height)
+        .frame(minHeight: GameButtonStyle.Size.icon.height)
     }
 
     private var twoPlayerLayout: some View {
@@ -402,7 +402,7 @@ private struct BuzzButton: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .frame(height: GameButtonStyle.Size.large.height)
+                .frame(minHeight: GameButtonStyle.Size.large.height)
                 .glassButtonSurface(
                     tint: player.color,
                     opacity: isActive ? 1 : isLocked || isUnavailable ? 0.25 : 0.8,
@@ -411,6 +411,8 @@ private struct BuzzButton: View {
                 .foregroundStyle(.white)
             }
             .disabled(!enabled && !isActive)
+            .accessibilityLabel("\(player.name)'s SET")
+            .accessibilityHint("Claim the board before selecting a set")
         }
     }
 }

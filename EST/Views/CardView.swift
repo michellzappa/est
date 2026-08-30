@@ -95,6 +95,10 @@ struct CardView: View {
             .opacity(isDimmed ? 0.35 : 1)
         }
         .aspectRatio(1, contentMode: .fit)
+        // A card's artwork is decorative by itself. Interactive containers
+        // provide the full trait-based label and button action so VoiceOver
+        // and Voice Control encounter one useful element per card.
+        .accessibilityHidden(true)
         // Apple Pencil hover on supported iPads is delivered through the
         // continuous hover phase. The same path is harmless for a trackpad or
         // mouse, and touch selection remains handled by the board.

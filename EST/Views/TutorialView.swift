@@ -21,6 +21,7 @@ struct TutorialView: View {
     @State private var practiceVerdict: [Card] = []
     @State private var practiceSolved = false
     @State private var practiceHint: Set<Int> = []
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private static let stepCount = 6
     /// Every card the tutorial draws is this size, on every step. A card that
@@ -72,35 +73,46 @@ struct TutorialView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: 12) {
-                if step > 0 {
-                    Button("Back") {
-                        withAnimation(.spring(duration: 0.35)) { step -= 1 }
-                    }
-                    .buttonStyle(.game(.quiet, size: .large))
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 12) {
+                    footerControls
                 }
-                if step == 4 {
-                    Button {
-                        revealPracticeHint()
-                    } label: {
-                        Label("Hint", systemImage: "lightbulb")
-                    }
-                    .buttonStyle(.game(.secondary, tint: .third, size: .large))
-                    .disabled(practiceSolved)
+            } else {
+                HStack(spacing: 12) {
+                    footerControls
                 }
-                Button(step == Self.stepCount - 1 ? "Play" : "Next") {
-                    if step == Self.stepCount - 1 {
-                        onFinish()
-                    } else {
-                        withAnimation(.spring(duration: 0.35)) { step += 1 }
-                    }
-                }
-                .buttonStyle(.game(.primary, tint: .second, size: .large))
-                .disabled(step == 4 && !practiceSolved)
             }
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 24)
+    }
+
+    @ViewBuilder
+    private var footerControls: some View {
+        if step > 0 {
+            Button("Back") {
+                withAnimation(.spring(duration: 0.35)) { step -= 1 }
+            }
+            .buttonStyle(.game(.quiet, size: .large))
+        }
+        if step == 4 {
+            Button {
+                revealPracticeHint()
+            } label: {
+                Label("Hint", systemImage: "lightbulb")
+            }
+            .buttonStyle(.game(.secondary, tint: .third, size: .large))
+            .disabled(practiceSolved)
+        }
+        Button(step == Self.stepCount - 1 ? "Play" : "Next") {
+            if step == Self.stepCount - 1 {
+                onFinish()
+            } else {
+                withAnimation(.spring(duration: 0.35)) { step += 1 }
+            }
+        }
+        .buttonStyle(.game(.primary, tint: .second, size: .large))
+        .disabled(step == 4 && !practiceSolved)
     }
 
     // MARK: - Steps
@@ -268,18 +280,35 @@ struct TutorialView: View {
     // MARK: - Practice logic
 
     private func practiceCell(_ card: Card) -> some View {
-        CardView(card: card, isSelected: practiceSelection.contains(card))
-            .frame(width: Self.cardSide, height: Self.cardSide)
-            .overlay {
-                if practiceHint.contains(card.id) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(
-                            Color.orange,
-                            style: StrokeStyle(lineWidth: 3, dash: [7, 5])
-                        )
+        let isSelected = practiceSelection.contains(card)
+        let position = (practiceCards.firstIndex(of: card) ?? 0) + 1
+
+        return Button {
+            tapPractice(card)
+        } label: {
+            CardView(card: card, isSelected: isSelected)
+                .frame(width: Self.cardSide, height: Self.cardSide)
+                .overlay {
+                    if practiceHint.contains(card.id) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(
+                                Color.orange,
+                                style: StrokeStyle(lineWidth: 3, dash: [7, 5])
+                            )
+                    }
                 }
-            }
-            .onTapGesture { tapPractice(card) }
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(card.accessibilityDescription), practice card \(position)")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint(
+            isSelected
+                ? "Double-tap to deselect this card"
+                : "Double-tap to select this card"
+        )
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .disabled(practiceSolved)
     }
 
     private func tapPractice(_ card: Card) {

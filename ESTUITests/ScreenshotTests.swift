@@ -58,7 +58,11 @@ final class ScreenshotTests: XCTestCase {
 
     @MainActor
     private func waitForGame(_ app: XCUIApplication) {
-        XCTAssertTrue(app.staticTexts["deck"].waitForExistence(timeout: 10))
+        // Wait on GameExitButton, the one control every game mode shows. The
+        // deck pile is not universal: PilesView appears in solo and in the
+        // iPhone duel, but the iPad duel table shows seats instead, so waiting
+        // for "deck" failed every iPad capture at the duel step.
+        XCTAssertTrue(app.buttons["End game"].waitForExistence(timeout: 10))
         Thread.sleep(forTimeInterval: 1.2)
     }
 

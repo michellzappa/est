@@ -42,13 +42,15 @@ struct GameButtonStyle: ButtonStyle {
             }
         }
 
-        var fontSize: CGFloat {
+        /// Semantic text styles scale with the user's preferred text size.
+        /// The previous point-size fonts kept the game controls fixed at
+        /// every Dynamic Type setting, which made Larger Text ineffective.
+        var font: Font {
             switch self {
-            case .large: 18
-            case .medium: 16
-            case .compact: 14
-            case .icon: 16
-            case .inline: 14
+            case .large: .system(.title3, design: .rounded, weight: .bold)
+            case .medium, .icon: .system(.body, design: .rounded, weight: .bold)
+            case .compact: .system(.subheadline, design: .rounded, weight: .bold)
+            case .inline: .system(.footnote, design: .rounded, weight: .bold)
             }
         }
     }
@@ -71,6 +73,8 @@ struct GameButtonStyle: ButtonStyle {
 
         @Environment(\.isEnabled) private var isEnabled
         @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+        @ScaledMetric(relativeTo: .body) private var horizontalPadding: CGFloat = 14
+        @ScaledMetric(relativeTo: .body) private var verticalPadding: CGFloat = 8
 
         private var cornerRadius: CGFloat { size.height * 0.32 }
         private var shape: RoundedRectangle {
@@ -80,11 +84,12 @@ struct GameButtonStyle: ButtonStyle {
         var body: some View {
             let pressed = configuration.isPressed
             configuration.label
-                .font(.system(size: size.fontSize, weight: .bold, design: .rounded))
+                .font(size.font)
                 .foregroundStyle(labelColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .padding(.horizontal, size == .icon ? 0 : 14)
+                .padding(.horizontal, size == .icon ? 0 : horizontalPadding)
+                .padding(.vertical, verticalPadding)
                 .modifier(SizeModifier(size: size))
                 .background(background)
                 .overlay {
@@ -134,17 +139,20 @@ struct GameButtonStyle: ButtonStyle {
     }
 
     /// Every size but `.icon` stretches, so buttons in a row end up equal.
+    /// The height is a minimum instead of a fixed frame: at larger Dynamic
+    /// Type sizes the semantic label gets enough vertical room to stay
+    /// legible rather than being clipped.
     private struct SizeModifier: ViewModifier {
         let size: Size
 
         func body(content: Content) -> some View {
             switch size {
             case .icon:
-                content.frame(width: size.height, height: size.height)
+                content.frame(minWidth: size.height, minHeight: size.height)
             case .inline:
-                content.frame(height: size.height)
+                content.frame(minHeight: size.height)
             default:
-                content.frame(maxWidth: .infinity).frame(height: size.height)
+                content.frame(maxWidth: .infinity).frame(minHeight: size.height)
             }
         }
     }
