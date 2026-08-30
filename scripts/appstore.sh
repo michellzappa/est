@@ -28,6 +28,15 @@ load_asc_credentials() {
   fi
 }
 
+# project.yml is the source of truth for versions. Without this, asc local-build
+# mode auto-resolves a build number from --initial-build-number (default 1) and
+# the uploaded binary reports "1" while the repo says something else, so the
+# number Settings shows no longer identifies the build.
+project_build_number() {
+  awk -F':' '/CURRENT_PROJECT_VERSION:/ { gsub(/[^0-9]/, "", $2); print $2; exit }' \
+    "$ROOT/project.yml"
+}
+
 require_team_id() {
   [ -n "$TEAM_ID" ] || {
     echo "Set EST_TEAM_ID to the Apple Developer Team ID before using this command." >&2
@@ -228,11 +237,17 @@ publish_app() {
   load_asc_credentials
   cd "$ROOT"
   node appstore/metadata.mjs
+  local build_number
+  build_number="$(project_build_number)"
+  [ -n "$build_number" ] || { echo "Could not read CURRENT_PROJECT_VERSION from project.yml"; exit 1; }
+  echo "· publishing $VERSION build $build_number"
+
   asc publish appstore \
     --app "$app_id" \
     --project EST.xcodeproj \
     --scheme EST \
     --version "$VERSION" \
+    --build-number "$build_number" \
     --metadata-dir appstore/metadata \
     --clean \
     --wait \

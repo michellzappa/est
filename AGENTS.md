@@ -147,6 +147,28 @@ ships `TARGETED_DEVICE_FAMILY: 1,2`, so iPhone and iPad sets are both
 mandatory. `appstore/devices.mjs` is the single source of truth for the device
 classes; `appstore/validate.mjs` fails when a class has no screenshots.
 
+These rules come from the real 1.0.0 publish. Each one failed first:
+
+- Pass `--build-number` from `project.yml`. In local-build mode `asc publish`
+  auto-resolves the build number from `--initial-build-number` (default 1) and
+  ignores `CURRENT_PROJECT_VERSION`. Build 1 of 1.0.0 shipped that way, so the
+  number Settings showed did not match the repo. `publish_app` now reads
+  `project.yml` and passes it.
+- Creating an app in the web UI makes a version named `1.0`, not `1.0.0`. The
+  binary carries `CFBundleShortVersionString` from `MARKETING_VERSION`, and a
+  build cannot attach to a version with a different string. Rename the version
+  with `asc versions update --version-id ID --version 1.0.0`.
+- Apple rejects `whatsNew` on an app that has never been released: "Attribute
+  'whatsNew' cannot be edited at this time". Generate metadata with
+  `EST_INITIAL_RELEASE=1` until 1.0.0 ships.
+- App Review details require `contactPhone`. The script fails up front now.
+- `asc review details-create` leaves `demoAccountRequired` true, which makes
+  App Review expect credentials EST does not have. The script pins it false.
+- App Privacy is not "Data Not Collected". Diagnostics default to on, so EST
+  transmits Usage Data (product interaction), Diagnostics, and a weekly
+  rotating device identifier. All are unlinked and not used for tracking. If
+  the diagnostics default changes, this declaration changes with it.
+
 Two steps need the App Store Connect web UI. The `asc` web session fails at
 Apple's session-info step with status 401, and the public API rejects the
 availability bootstrap:
