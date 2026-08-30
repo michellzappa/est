@@ -21,6 +21,10 @@ struct BoardGridView: View {
     var isInteractive = true
     var claimColor: Color?
     var claimDeadline: Date?
+    /// Largest a card may become. A caller that frames the board itself passes
+    /// `.infinity`: it has already fitted the grid, and clamping here would
+    /// shrink the board inside a frame sized for something larger.
+    var maximumCardSide: CGFloat = BoardGridView.compactMaximumCardSide
     var onTap: (Card) -> Void
 
     init(
@@ -32,6 +36,7 @@ struct BoardGridView: View {
         isInteractive: Bool = true,
         claimColor: Color? = nil,
         claimDeadline: Date? = nil,
+        maximumCardSide: CGFloat = BoardGridView.compactMaximumCardSide,
         onTap: @escaping (Card) -> Void
     ) {
         self.table = engine.table
@@ -47,6 +52,7 @@ struct BoardGridView: View {
         self.isInteractive = isInteractive
         self.claimColor = claimColor
         self.claimDeadline = claimDeadline
+        self.maximumCardSide = maximumCardSide
         self.onTap = onTap
     }
 
@@ -63,6 +69,7 @@ struct BoardGridView: View {
         isInteractive: Bool = true,
         claimColor: Color? = nil,
         claimDeadline: Date? = nil,
+        maximumCardSide: CGFloat = BoardGridView.compactMaximumCardSide,
         onTap: @escaping (Card) -> Void
     ) {
         self.table = table
@@ -77,16 +84,20 @@ struct BoardGridView: View {
         self.isInteractive = isInteractive
         self.claimColor = claimColor
         self.claimDeadline = claimDeadline
+        self.maximumCardSide = maximumCardSide
         self.onTap = onTap
     }
 
     private let gap: CGFloat = 10
 
-    /// Ceiling on one card. Without it a solo or duel table on iPad grows a
-    /// card to the full third of the screen width, which reads as a different
-    /// game from the four-seat table. The cap keeps every mode at a similar
-    /// card size; smaller windows still scale down below it.
-    static let maximumCardSide: CGFloat = 150
+    /// Ceiling for a compact-width screen. A phone's width limit always wins
+    /// before this binds, so it effectively never applies there.
+    static let compactMaximumCardSide: CGFloat = 150
+
+    /// Ceiling for a regular-width screen. This matches the card size the
+    /// four-seat table computes on a 13-inch iPad, so solo and party read as
+    /// one game rather than two.
+    static let regularMaximumCardSide: CGFloat = 240
 
     @State private var flights: [DepartureFlight] = []
     @State private var departureOrigins: [DepartureOrigin] = []
@@ -107,7 +118,7 @@ struct BoardGridView: View {
                     (proxy.size.width - CGFloat(columns - 1) * gap) / CGFloat(columns),
                     (proxy.size.height - CGFloat(rows - 1) * gap) / CGFloat(rows)
                 ),
-                Self.maximumCardSide
+                maximumCardSide
             )
             let gridWidth = CGFloat(columns) * side + CGFloat(columns - 1) * gap
             let gridHeight = CGFloat(rows) * side + CGFloat(rows - 1) * gap
@@ -198,10 +209,11 @@ struct BoardGridView: View {
             }
             // Fill the reader so the ZStack can center the grid. Without this
             // the ZStack sizes to the grid and GeometryReader pins it
-            // top-leading. It only shows on iPad, where maximumCardSide caps
-            // the grid far below the available width, leaving the board in the
-            // top-left corner. slotCenter already computes flight coordinates
-            // from the centered origin, so the match animation needs this too.
+            // top-leading. It shows whenever the grid is narrower than the
+            // space it was given, which is any screen where the ceiling or the
+            // height limit binds before the width does. slotCenter already
+            // computes flight coordinates from the centered origin, so the
+            // match animation needs this too.
             .frame(width: proxy.size.width, height: proxy.size.height)
             .onChange(of: celebrationIDs) { _, ids in
                 guard !ids.isEmpty else { return }

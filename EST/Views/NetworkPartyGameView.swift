@@ -185,7 +185,9 @@ struct NetworkPartyGameView: View {
             pileFrames: pileFrames,
             isInteractive: session.activePlayerID == session.localID && !session.isFinished,
             claimColor: activePlayer?.color,
-            claimDeadline: session.claimDeadline
+            claimDeadline: session.claimDeadline,
+            // adaptiveBoard already fits the grid and frames it.
+            maximumCardSide: .infinity
         ) { card in
             session.selectLocal(card)
         }

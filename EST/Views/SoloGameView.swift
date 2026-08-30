@@ -13,6 +13,7 @@ struct SoloGameView: View {
     @State private var showHintWarning = false
     @State private var lastMatchElapsed: TimeInterval = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("showSoloTimer") private var showSoloTimer = true
     var onExit: () -> Void
@@ -42,7 +43,12 @@ struct SoloGameView: View {
                 selectedIDsOverride: screenshotSelectedIDs,
                 hintedIDs: hintedIDs,
                 pileFrames: pileFrames,
-                isInteractive: !engine.isFinished && !engine.isPaused
+                isInteractive: !engine.isFinished && !engine.isPaused,
+                // Solo gives the board the whole screen, so the ceiling is what
+                // stops a card reaching a third of an iPad's width.
+                maximumCardSide: horizontalSizeClass == .regular
+                    ? BoardGridView.regularMaximumCardSide
+                    : BoardGridView.compactMaximumCardSide
             ) { card in
                 select(card)
             }

@@ -222,7 +222,9 @@ struct PartyGameView: View {
             pileFrames: pileFrames,
             isInteractive: session.activePlayerID != nil && !session.engine.isFinished,
             claimColor: session.activePlayer?.color,
-            claimDeadline: session.claimDeadline
+            claimDeadline: session.claimDeadline,
+            // The seat layouts above already fit the grid and frame it.
+            maximumCardSide: .infinity
         ) { card in
             _ = session.select(card)
         }
