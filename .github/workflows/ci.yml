@@ -23,19 +23,37 @@ jobs:
           node appstore/validate.mjs --metadata-only
 
   ios:
-    runs-on: macos-15
+    # Needs an Xcode with the iOS 26 SDK. GlassHelpers.swift calls glassEffect
+    # behind `if #available(iOS 26.0, *)`, and an availability check governs
+    # runtime only: the symbol must still exist in the SDK to compile. Xcode
+    # 16.4 on the macos-15 image cannot build it.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          newest=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphonesimulator || true
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
       - name: Run unit tests
-        run: >-
-          xcodebuild test
-          -project EST.xcodeproj
-          -scheme EST
-          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
-          -derivedDataPath "$RUNNER_TEMP/DerivedData"
-          CODE_SIGNING_ALLOWED=NO
-          CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
+        run: |
+          # Pick a booted-capable iPhone from whatever the image ships, rather
+          # than pinning a model name that changes with every Xcode release.
+          udid=$(xcrun simctl list devices available --json \
+            | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for v in d.values() for x in v if x['name'].startswith('iPhone')))")
+          echo "simulator: $udid"
+          # ESTTests only. The scheme also holds ESTUITests, which drives the UI
+          # for App Store captures: slow and flaky on a CI runner.
+          xcodebuild test \
+            -project EST.xcodeproj \
+            -scheme EST \
+            -only-testing:ESTTests \
+            -destination "platform=iOS Simulator,id=$udid" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
