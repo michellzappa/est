@@ -18,7 +18,7 @@ npx wrangler deploy
 ```
 
 The client expects the deployed service at
-`https://est-telemetry.mz-508.workers.dev/v1/batches`. For local testing, set
+`https://est-telemetry.envisioning.workers.dev/v1/batches`. For local testing, set
 the `estTelemetryEndpoint` UserDefaults key to a loopback HTTP endpoint.
 
 The Worker whitelists every activity and feature key, validates the app

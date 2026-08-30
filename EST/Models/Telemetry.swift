@@ -204,7 +204,7 @@ enum ESTTelemetry {
     /// The EST intake is intentionally separate from Headroom's Mac contract.
     /// A release build can override this with `estTelemetryEndpoint` while the
     /// first-party Worker is developed or self-hosted.
-    static let defaultEndpoint = "https://est-telemetry.mz-508.workers.dev/v1/batches"
+    static let defaultEndpoint = "https://est-telemetry.envisioning.workers.dev/v1/batches"
     static let sourceURL = URL(string: "https://github.com/michellzappa/est/blob/main/EST/Models/Telemetry.swift")!
     static let privacyURL = URL(string: "https://github.com/michellzappa/est/blob/main/PRIVACY.md")!
 
