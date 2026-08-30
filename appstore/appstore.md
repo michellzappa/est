@@ -8,7 +8,7 @@ JSON under `metadata/` is consumed by the `asc` CLI. Edit this file, then run
 
 ### name
 
-EST
+EST - Card Trios
 
 ### subtitle
 
@@ -16,7 +16,7 @@ Find the three that fit.
 
 ### promotional_text
 
-Find three cards with one rule: each trait is all the same or all different. Play solo, share one phone, or duel across devices. On iPad, four players can share one table.
+Find three cards: every trait is all the same or all different. Play solo, share a phone, or duel across devices. On iPad, four players share a table.
 
 ### description
 
@@ -40,7 +40,7 @@ Every card is a point in a four-dimensional space, and every set is a line. Buil
 
 CUSTOMIZE THE LOOK
 
-Choose a color theme and fill style. Turn sound effects and haptics on or off. EST has no ads or subscriptions. An optional one-time support purchase helps pay for maintenance, adds a permanent supporter mark and optional cosmetic finish, and provides early TestFlight access when available. No gameplay is locked.
+Choose a color theme and fill style. Turn sound effects and haptics on or off. EST has no ads or subscriptions. An optional one-time support purchase helps pay for maintenance, adds a permanent supporter mark, optional Dusk card colors and a warm background setting, and provides early TestFlight access when available. No gameplay is locked.
 
 EST is open source and inspired by SET, the classic card game created by Marsha Falco. EST uses its own name, artwork, and code. It is not affiliated with, sponsored by, or endorsed by SET's makers.
 

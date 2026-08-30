@@ -13,10 +13,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${EST_VERSION:-0.1.0}"
-TEAM_ID="${EST_TEAM_ID:-992N457T8D}"
+VERSION="${EST_VERSION:-1.0.0}"
+TEAM_ID="${EST_TEAM_ID:-}"
 BUNDLE_ID="com.centaur-labs.est"
-ASC_SECRETS="${EST_ASC_SECRETS:-$HOME/.cartogram-secrets}"
+ASC_SECRETS="${EST_ASC_SECRETS:-$HOME/.est-asc-secrets}"
 
 load_asc_credentials() {
   if [ -f "$ASC_SECRETS" ]; then
@@ -26,6 +26,13 @@ load_asc_credentials() {
     export ASC_PRIVATE_KEY_PATH="${ASC_PRIVATE_KEY_PATH:-${ASC_KEY_PATH:-}}"
     export ASC_BYPASS_KEYCHAIN="${ASC_BYPASS_KEYCHAIN:-1}"
   fi
+}
+
+require_team_id() {
+  [ -n "$TEAM_ID" ] || {
+    echo "Set EST_TEAM_ID to the Apple Developer Team ID before using this command." >&2
+    exit 1
+  }
 }
 
 usage() {
@@ -55,10 +62,14 @@ create_app() {
   local apple_id="$1"
   load_asc_credentials
   cd "$ROOT"
+  # asc 4.x dropped --public-provider-id from `web apps create`. The web
+  # session prompts for the team when the account owns more than one.
+  # asc 4.x defaults --auto-rename to true, which silently creates "EST 2" when
+  # the App Store name is taken. Fail instead: the name is a product decision.
   asc web apps create \
     --apple-id "$apple_id" \
-    --public-provider-id "$TEAM_ID" \
-    --name "EST" \
+    --auto-rename false \
+    --name "EST - Card Trios" \
     --bundle-id "$BUNDLE_ID" \
     --sku "EST" \
     --platform IOS \
@@ -69,6 +80,7 @@ create_app() {
 
 setup_app() {
   local app_id="$1"
+  require_team_id
   load_asc_credentials
   cd "$ROOT"
   asc app-setup info set \
@@ -77,8 +89,8 @@ setup_app() {
     --bundle-id "$BUNDLE_ID" \
     --content-rights DOES_NOT_USE_THIRD_PARTY_CONTENT \
     --locale en-US \
-    --name "EST" \
-    --subtitle "Find three. Every time." \
+    --name "EST - Card Trios" \
+    --subtitle "Find the three that fit." \
     --privacy-policy-url "https://github.com/michellzappa/est/blob/main/PRIVACY.md"
   asc app-setup categories set --app "$app_id" --primary GAMES --secondary PUZZLE
   asc web apps availability create \
@@ -152,11 +164,13 @@ upload_screenshots() {
     --path appstore/screenshots \
     --device-type IPHONE_69 \
     --platform IOS \
-    --replace
+    --replace \
+    --confirm
 }
 
 publish_app() {
   local app_id="$1"
+  require_team_id
   load_asc_credentials
   cd "$ROOT"
   node appstore/metadata.mjs
@@ -189,7 +203,7 @@ submit_app() {
   asc review submit \
     --app "$app_id" \
     --version "$VERSION" \
-    --build "$build_id" \
+    --build-id "$build_id" \
     --confirm
 }
 

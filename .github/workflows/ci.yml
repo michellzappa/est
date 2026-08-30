@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate metadata tools
+        run: |
+          node --check telemetry/worker.js
+          node --check appstore/metadata.mjs
+          node --check appstore/render-product-page.mjs
+          node --check appstore/validate.mjs
+          node appstore/metadata.mjs
+          node appstore/validate.mjs --metadata-only
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Run unit tests
+        run: >-
+          xcodebuild test
+          -project EST.xcodeproj
+          -scheme EST
+          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+          -derivedDataPath "$RUNNER_TEMP/DerivedData"
+          CODE_SIGNING_ALLOWED=NO
+          CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"

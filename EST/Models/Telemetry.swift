@@ -198,12 +198,14 @@ enum ESTTelemetry {
     static let enabledKey = "estTelemetryEnabled"
     static let lastSubmittedPeriodKey = "estTelemetryLastSubmittedPeriod"
     static let endpointKey = "estTelemetryEndpoint"
+    private static let endpointInfoKey = "ESTTelemetryEndpoint"
+    private static let consentVersionKey = "estTelemetryConsentVersion"
+    private static let consentVersion = 2
     static let schemaVersion = 1
     static let product = "est"
 
-    /// The EST intake is intentionally separate from Headroom's Mac contract.
-    /// A release build can override this with `estTelemetryEndpoint` while the
-    /// first-party Worker is developed or self-hosted.
+    /// The first-party EST target reports to the dedicated EST Worker. Forks
+    /// can replace this with the Info.plist or UserDefaults override.
     static let defaultEndpoint = "https://est-telemetry.envisioning.workers.dev/v1/batches"
     static let sourceURL = URL(string: "https://github.com/michellzappa/est/blob/main/EST/Models/Telemetry.swift")!
     static let privacyURL = URL(string: "https://github.com/michellzappa/est/blob/main/PRIVACY.md")!
@@ -212,10 +214,24 @@ enum ESTTelemetry {
     private static let installSecretService = "com.centaur-labs.est.telemetry"
     private static let installSecretAccount = "install-secret"
 
-    /// New installs and existing installs that predate this setting both start
-    /// with the same visible choice: on. It can be turned off at any time.
+    /// Diagnostics are enabled by default on new installs. Existing installs
+    /// keep the choice already stored on the device.
     static var enabled: Bool {
-        (UserDefaults.standard.object(forKey: enabledKey) as? Bool) ?? true
+        migrateConsentIfNeeded()
+        return (UserDefaults.standard.object(forKey: enabledKey) as? Bool) ?? true
+    }
+
+    /// Mark the current default without overwriting an existing choice. This
+    /// lets fresh installs start enabled while preserving an earlier opt-out.
+    static func migrateConsentIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard defaults.integer(forKey: consentVersionKey) < consentVersion else {
+            return
+        }
+        if defaults.object(forKey: enabledKey) == nil {
+            defaults.set(true, forKey: enabledKey)
+        }
+        defaults.set(consentVersion, forKey: consentVersionKey)
     }
 
     static func setEnabled(_ enabled: Bool) {
@@ -230,7 +246,11 @@ enum ESTTelemetry {
     }
 
     static var endpoint: URL? {
+        let infoEndpoint = (Bundle.main.object(
+            forInfoDictionaryKey: endpointInfoKey
+        ) as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let raw = UserDefaults.standard.string(forKey: endpointKey)
+            ?? (infoEndpoint?.isEmpty == false ? infoEndpoint : nil)
             ?? defaultEndpoint
         guard let url = URL(string: raw),
               url.scheme == "https"
@@ -469,35 +489,29 @@ enum ESTCommunityStatsClient {
     private enum FetchError: Error {
         case unavailable
         case invalidResponse
-        case timedOut
     }
 
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = false
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 8
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: configuration)
+    }()
+
     static func fetch() async throws -> ESTCommunityStats {
-        try await withThrowingTaskGroup(of: ESTCommunityStats.self) { group in
-            group.addTask {
-                guard let endpoint = ESTTelemetry.communityEndpoint else {
-                    throw FetchError.unavailable
-                }
-                var request = URLRequest(url: endpoint)
-                request.httpMethod = "GET"
-                request.timeoutInterval = 8
-                request.cachePolicy = .reloadIgnoringLocalCacheData
-                let (data, response) = try await URLSession.shared.data(for: request)
-                guard let http = response as? HTTPURLResponse,
-                      (200..<300).contains(http.statusCode)
-                else { throw FetchError.invalidResponse }
-                return try JSONDecoder().decode(ESTCommunityStats.self, from: data)
-            }
-            group.addTask {
-                try await Task.sleep(for: .seconds(8))
-                throw FetchError.timedOut
-            }
-            defer { group.cancelAll() }
-            guard let result = try await group.next() else {
-                throw FetchError.timedOut
-            }
-            return result
+        guard let endpoint = ESTTelemetry.communityEndpoint else {
+            throw FetchError.unavailable
         }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode)
+        else { throw FetchError.invalidResponse }
+        return try JSONDecoder().decode(ESTCommunityStats.self, from: data)
     }
 }
 

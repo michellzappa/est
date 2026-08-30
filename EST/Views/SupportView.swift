@@ -4,7 +4,6 @@ import SwiftUI
 /// changes nothing about gameplay, so it cannot be mistaken for a paywall.
 struct SupportView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     @Environment(SupportStore.self) private var store
     @State private var showThankYou = false
 
@@ -59,11 +58,11 @@ struct SupportView: View {
                                 .foregroundStyle(Card.Tint.blue.color)
 
                             Button {
-                                Appearance.shared.theme = .supporter
+                                Appearance.shared.theme = .dusk
                             } label: {
-                                Label("Use supporter finish", systemImage: "paintpalette")
+                                Label("Use Dusk colors", systemImage: "paintpalette")
                             }
-                            .buttonStyle(.game(.secondary, tint: .yellow, size: .medium))
+                            .buttonStyle(.game(.secondary, tint: .third, size: .medium))
                         }
                     } else {
                         Button {
@@ -85,7 +84,7 @@ struct SupportView: View {
                                 }
                             }
                         }
-                        .buttonStyle(.game(.primary, tint: .red, size: .large))
+                        .buttonStyle(.game(.primary, tint: .first, size: .large))
                         .disabled(isWorking || store.product == nil)
                     }
 
@@ -110,6 +109,8 @@ struct SupportView: View {
             }
             .navigationTitle("Support EST")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Appearance.shared.gameBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -122,7 +123,7 @@ struct SupportView: View {
         }
         .sheet(isPresented: $showThankYou) {
             SupportThankYouView {
-                Appearance.shared.theme = .supporter
+                Appearance.shared.theme = .dusk
             }
         }
     }
@@ -133,19 +134,13 @@ struct SupportView: View {
                 .font(.headline)
 
             perkRow("checkmark.seal.fill", "A permanent supporter mark in EST")
-            perkRow("paintpalette.fill", "An optional cosmetic finish for cards and the table")
+            perkRow("paintpalette.fill", "The optional Dusk card colors")
+            perkRow("sun.max.fill", "An optional warm background in Settings")
             perkRow("testtube.2", "Early TestFlight access when new builds are available")
 
-            Text("TestFlight invites and public thanks are handled manually and are always opt-in.")
+            Text("TestFlight invites are handled manually and are always opt-in.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-
-            Button {
-                openURL(Self.publicThanksURL)
-            } label: {
-                Label("Ask to be listed in public thanks", systemImage: "person.crop.circle.badge.plus")
-            }
-            .buttonStyle(.game(.quiet, size: .compact))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
@@ -183,7 +178,6 @@ struct SupportView: View {
             .foregroundStyle(.primary)
     }
 
-    private static let publicThanksURL = URL(string: "https://github.com/michellzappa/est/issues/new?title=Public%20supporter%20thanks")!
 }
 
 private struct SupportThankYouView: View {
@@ -218,12 +212,12 @@ private struct SupportThankYouView: View {
                     onUseFinish()
                     dismiss()
                 } label: {
-                    Label("Try supporter finish", systemImage: "paintpalette")
+                    Label("Try Dusk colors", systemImage: "paintpalette")
                 }
-                .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
+                .buttonStyle(.game(.secondary, tint: .third, size: .large))
 
                 Button("Done") { dismiss() }
-                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                    .buttonStyle(.game(.primary, tint: .second, size: .large))
             }
             .padding(28)
             .frame(maxWidth: 440)

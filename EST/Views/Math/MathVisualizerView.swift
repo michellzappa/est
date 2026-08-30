@@ -108,6 +108,8 @@ struct MathVisualizerView: View {
         .background(Appearance.shared.gameBackground.ignoresSafeArea())
         .navigationTitle("The mathematics")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Appearance.shared.gameBackground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
     }
 
     private var intro: some View {
@@ -281,7 +283,7 @@ struct MathVisualizerView: View {
                 Label("Shuffle the pair", systemImage: "shuffle")
                     .font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(.game(.secondary, tint: .blue, size: .compact))
+            .buttonStyle(.game(.secondary, tint: .second, size: .compact))
         }
     }
 
@@ -297,7 +299,7 @@ struct MathVisualizerView: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.game(.primary, tint: .blue, size: .compact))
+                .buttonStyle(.game(.primary, tint: .second, size: .compact))
 
                 Button {
                     withAnimation(.spring(duration: 0.35)) {
@@ -307,7 +309,7 @@ struct MathVisualizerView: View {
                     Image(systemName: "xmark")
                         .frame(width: 20)
                 }
-                .buttonStyle(.game(.quiet, tint: .blue, size: .icon))
+                .buttonStyle(.game(.quiet, tint: .second, size: .icon))
                 .accessibilityLabel("Clear selection")
             }
 

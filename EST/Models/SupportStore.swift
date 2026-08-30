@@ -117,8 +117,11 @@ final class SupportStore {
 
     private func setSupporter(_ value: Bool) {
         isSupporter = value
-        if !value, Appearance.shared.theme == .supporter {
+        if !value, Appearance.shared.theme == .dusk {
             Appearance.shared.theme = .primary
+        }
+        if !value {
+            Appearance.shared.warmBackgroundEnabled = false
         }
     }
 

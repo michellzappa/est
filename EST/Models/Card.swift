@@ -43,6 +43,14 @@ struct Card: Identifiable, Hashable {
             case .yellow: "yellow"
             }
         }
+
+        var accessibilityMarker: String {
+            switch self {
+            case .red: "R"
+            case .blue: "B"
+            case .yellow: "Y"
+            }
+        }
     }
 
     enum Fill: Int, CaseIterable {

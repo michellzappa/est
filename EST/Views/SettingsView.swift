@@ -7,9 +7,15 @@ struct SettingsView: View {
     @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("immersiveGameMode") private var immersiveGameMode = true
+    @AppStorage("showSoloTimer") private var showSoloTimer = true
+    @AppStorage("keepScreenAwake") private var keepScreenAwake = false
+    @AppStorage("bestSoloTime") private var bestSoloTime: Double = 0
+    @AppStorage("bestQuickTime") private var bestQuickTime: Double = 0
     @AppStorage(ESTTelemetry.enabledKey) private var telemetryEnabled = true
+    @State private var showFeedback = false
     @State private var showSupport = false
     @State private var showTelemetryPreview = false
+    @State private var showResetStatsConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -34,7 +40,7 @@ struct SettingsView: View {
                 Section("Colors") {
                     ForEach(Appearance.Theme.allCases, id: \.self) { theme in
                         Button {
-                            if theme == .supporter && !supportStore.isSupporter {
+                            if theme == .dusk && !supportStore.isSupporter {
                                 showSupport = true
                             } else {
                                 appearance.theme = theme
@@ -49,23 +55,94 @@ struct SettingsView: View {
                                         .fill(theme.color(for: tint))
                                         .frame(width: 16, height: 16)
                                 }
-                                Image(systemName: theme == .supporter && !supportStore.isSupporter ? "lock.fill" : "checkmark")
+                                Image(systemName: theme == .dusk && !supportStore.isSupporter ? "lock.fill" : "checkmark")
                                     .font(.footnote.bold())
-                                    .foregroundStyle(theme == .supporter && !supportStore.isSupporter ? .secondary : .primary)
-                                    .opacity((theme == .supporter && !supportStore.isSupporter) || appearance.theme == theme ? 1 : 0)
+                                    .foregroundStyle(theme == .dusk && !supportStore.isSupporter ? .secondary : .primary)
+                                    .opacity((theme == .dusk && !supportStore.isSupporter) || appearance.theme == theme ? 1 : 0)
                             }
                         }
                     }
+
+                    if supportStore.isSupporter {
+                        Toggle("Warm background", isOn: $appearance.warmBackgroundEnabled)
+                    } else {
+                        Button {
+                            showSupport = true
+                        } label: {
+                            HStack {
+                                Text("Warm background")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "lock.fill")
+                                    .font(.footnote.bold())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    Text("A separate optional supporter cosmetic. Dusk changes card colors only.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
-                Section("Feedback") {
+                Section("Accessibility") {
+                    Picker("Reduce motion", selection: $appearance.reduceMotion) {
+                        ForEach(Appearance.AccessibilitySetting.allCases, id: \.self) { setting in
+                            Text(setting.name).tag(setting)
+                        }
+                    }
+
+                    Picker("High contrast", selection: $appearance.highContrast) {
+                        ForEach(Appearance.AccessibilitySetting.allCases, id: \.self) { setting in
+                            Text(setting.name).tag(setting)
+                        }
+                    }
+
+                    Picker("Color-blind assist", selection: $appearance.colorBlindAssist) {
+                        ForEach(Appearance.AccessibilitySetting.allCases, id: \.self) { setting in
+                            Text(setting.name).tag(setting)
+                        }
+                    }
+
+                    Text("Auto follows the matching iOS Accessibility setting. On and Off override it for EST.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Sound & touch") {
                     Toggle("Sound effects", isOn: $soundEffectsEnabled)
                     Toggle("Haptics", isOn: $hapticsEnabled)
+                }
+
+                Section("Feedback & support") {
+                    Button {
+                        showFeedback = true
+                    } label: {
+                        Label("Send feedback", systemImage: "envelope")
+                    }
                 }
 
                 Section("Game") {
                     Toggle("Immersive game mode", isOn: $immersiveGameMode)
                     Text("Hides the iPhone status bar and Game Center button while playing.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Toggle("Show solo timer", isOn: $showSoloTimer)
+                    Text("Hides the live clock in Solo 81 and Quick 27 when turned off. Your time is still recorded.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Toggle("Keep screen awake", isOn: $keepScreenAwake)
+                    Text("Prevents the display from sleeping while EST is open.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Data") {
+                    Button("Reset local stats", role: .destructive) {
+                        showResetStatsConfirmation = true
+                    }
+                    Text("Clears personal bests and private play-style stats on this device. Game Center scores are not affected.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -74,10 +151,15 @@ struct SettingsView: View {
                     Toggle("Share anonymous diagnostics", isOn: $telemetryEnabled)
                         .onChange(of: telemetryEnabled) { _, enabled in
                             ESTTelemetry.setEnabled(enabled)
+                            if enabled {
+                                TelemetryCoordinator.shared.start()
+                            } else {
+                                TelemetryCoordinator.shared.stop()
+                            }
                         }
 
                     DisclosureGroup("What is shared") {
-                        Text("When enabled, EST sends at most one aggregate batch per week containing the app version, iOS major version, coarse mode activity, and a few feature settings.")
+                        Text("When enabled and a diagnostics endpoint is configured, EST sends one aggregate record per ISO week containing the app version, iOS major version, coarse mode activity, and a few feature settings.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         Text("EST never sends your name, Game Center ID, cards, scores, exact times, or gameplay events. Turning this off deletes pending diagnostics and stops new collection.")
@@ -98,8 +180,10 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Community Pulse") {
-                    CommunityPulseView()
+                if telemetryEnabled {
+                    Section("Community Pulse") {
+                        CommunityPulseView()
+                    }
                 }
 
                 Section(
@@ -156,11 +240,30 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Appearance.shared.gameBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .sheet(isPresented: $showSupport) {
                 SupportView()
             }
+            .sheet(isPresented: $showFeedback) {
+                FeedbackView()
+            }
             .sheet(isPresented: $showTelemetryPreview) {
                 TelemetryPreviewView()
+            }
+            .confirmationDialog(
+                "Reset local stats?",
+                isPresented: $showResetStatsConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Reset stats", role: .destructive) {
+                    bestSoloTime = 0
+                    bestQuickTime = 0
+                    PlayerStats.shared.reset()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes personal bests and private learning stats from this device.")
             }
             .onChange(of: soundEffectsEnabled) { _, enabled in
                 GameAudio.shared.setEnabled(enabled)
@@ -205,6 +308,8 @@ private struct TelemetryPreviewView: View {
             }
             .navigationTitle("Telemetry preview")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Appearance.shared.gameBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -227,31 +332,43 @@ private struct TelemetryPreviewView: View {
 }
 
 private struct CommunityPulseView: View {
-    @State private var stats: ESTCommunityStats?
-    @State private var isLoading = false
+    /// One row, three states. The state must not live in the branch structure:
+    /// a `Group` applies `.task` to each branch, so a branch switch tears the
+    /// row down and cancels the fetch that caused the switch.
+    private enum Phase {
+        case loading
+        case loaded(ESTCommunityStats)
+        case unavailable
+    }
+
+    @State private var phase = Phase.loading
+    @State private var isRefreshing = false
     @State private var reloadID = 0
 
     var body: some View {
-        Group {
-            if let stats {
-                statsContent(stats)
-            } else if isLoading {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        ProgressView()
-                        Text("Loading community activity…")
-                            .foregroundStyle(.secondary)
-                    }
-                    Button {
-                        reloadID += 1
-                    } label: {
-                        Label("Reload", systemImage: "arrow.clockwise")
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            switch phase {
+            case .loading:
+                HStack {
+                    ProgressView()
+                    Text("Loading community activity…")
+                        .foregroundStyle(.secondary)
                 }
-            } else {
+            case .loaded(let stats):
+                statsContent(stats)
+            case .unavailable:
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Community activity is unavailable", systemImage: "chart.xyaxis.line")
-                    Text("Try again when you have a connection.")
+                    Label(
+                        ESTTelemetry.communityEndpoint == nil
+                            ? "Community Pulse is not configured"
+                            : "Community activity is unavailable",
+                        systemImage: "chart.xyaxis.line"
+                    )
+                    Text(
+                        ESTTelemetry.communityEndpoint == nil
+                            ? "This source build has no telemetry endpoint."
+                            : "Try again when you have a connection."
+                    )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Button("Try again") {
@@ -260,6 +377,7 @@ private struct CommunityPulseView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .task(id: reloadID) {
             await reload(id: reloadID)
         }
@@ -318,7 +436,7 @@ private struct CommunityPulseView: View {
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(isLoading)
+                .disabled(isRefreshing)
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
@@ -331,7 +449,7 @@ private struct CommunityPulseView: View {
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(isLoading)
+                .disabled(isRefreshing)
             }
         }
     }
@@ -395,14 +513,26 @@ private struct CommunityPulseView: View {
 
     @MainActor
     private func reload(id: Int) async {
-        isLoading = true
+        guard ESTTelemetry.communityEndpoint != nil else {
+            phase = .unavailable
+            return
+        }
+        isRefreshing = true
         defer {
             if reloadID == id {
-                isLoading = false
+                isRefreshing = false
             }
         }
-        guard let result = try? await ESTCommunityStatsClient.fetch() else { return }
-        guard reloadID == id else { return }
-        stats = result
+        do {
+            let result = try await ESTCommunityStatsClient.fetch()
+            guard reloadID == id else { return }
+            phase = .loaded(result)
+        } catch {
+            // A cancelled fetch means a newer reload replaced this one. Keep
+            // the last good numbers when a refresh fails.
+            guard reloadID == id, !Task.isCancelled else { return }
+            if case .loaded = phase { return }
+            phase = .unavailable
+        }
     }
 }

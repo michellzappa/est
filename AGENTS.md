@@ -44,9 +44,9 @@ drive the UI unless asked.
   advances on its own — the network host rebroadcasts there.
 - Buttons: every control the player taps uses `GameButtonStyle` through
   `.buttonStyle(.game(role, tint:, size:))` in `ButtonStyles.swift`. Three
-  rules: one `.primary` per screen, tints come from `Card.Tint` (never the
-  system accent, so themes restyle the buttons with the cards), and a row is
-  one size so it cannot taper or wrap. Do not use `.bordered` or
+  rules: one `.primary` per screen, tints come from `GameAccent` (mapped onto
+  the active card palette, never the system accent), and a row is one size so
+  it cannot taper or wrap. Do not use `.bordered` or
   `.borderedProminent` in game UI. Settings is a Form and keeps native rows.
 - Liquid Glass: use the `glassPanel`/`glassButtonSurface` helpers in
   `GlassHelpers.swift` (iOS 26 glass, material fallback). Do not call
@@ -57,8 +57,9 @@ drive the UI unless asked.
   nearby via Game Center matchmaking). The device with the lowest gamePlayerID
   is host and owns the only real `GameEngine`; clients send buzz/select events
   and render full-state JSON snapshots (`NetMessages.swift`). Times cross the
-  wire as remaining seconds, never dates. Claim/lockout constants live in
-  `PartySession` — the network session reuses them; do not fork them.
+  wire as remaining seconds, never dates. Claim/lockout rules live in
+  `ClaimRace.Configuration`; local and network party sessions reuse them; do
+  not fork them.
 - `BoardGridView` and `PilesView` take plain values (with engine convenience
   initializers) so local engines and remote snapshots share the same views.
 - Any player disconnect ends a network game. Real matchmaking needs the app
@@ -83,9 +84,9 @@ drive the UI unless asked.
 - Look settings live in `Appearance.shared` (fill style, color theme).
   `Card.Tint.color` delegates to the active theme; never hardcode card colors
   in views. The icon generator script keeps its own baked colors.
-- Signing defaults to automatic with Centaur Labs (`DEVELOPMENT_TEAM:
-  992N457T8D`) in `project.yml`. Simulator builds still need
-  `CODE_SIGNING_ALLOWED=NO`.
+- Signing is automatic with no team hardcoded in `project.yml`, so forks can
+  choose their own Apple Developer account. App Store archive scripts require
+  `EST_TEAM_ID`; simulator builds still need `CODE_SIGNING_ALLOWED=NO`.
 - iPhone and iPad (`TARGETED_DEVICE_FAMILY: 1,2`); iPhone remains portrait,
   while iPad supports portrait and landscape so four seats can use every edge.
   Square-ish large-screen iPhone windows use the same responsive four-seat

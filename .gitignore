@@ -4,3 +4,8 @@ xcuserdata/
 DerivedData/
 build/
 .wrangler/
+*.xcresult
+*.xcuserdatad/
+.env
+.env.*
+!.env.example

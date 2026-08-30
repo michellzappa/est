@@ -19,6 +19,8 @@ struct BoardGridView: View {
     var collectionTargetID: String?
     var pileFrames = PileFrames()
     var isInteractive = true
+    var claimColor: Color?
+    var claimDeadline: Date?
     var onTap: (Card) -> Void
 
     init(
@@ -28,6 +30,8 @@ struct BoardGridView: View {
         collectionTargetID: String? = nil,
         pileFrames: PileFrames = PileFrames(),
         isInteractive: Bool = true,
+        claimColor: Color? = nil,
+        claimDeadline: Date? = nil,
         onTap: @escaping (Card) -> Void
     ) {
         self.table = engine.table
@@ -41,6 +45,8 @@ struct BoardGridView: View {
         self.collectionTargetID = collectionTargetID
         self.pileFrames = pileFrames
         self.isInteractive = isInteractive
+        self.claimColor = claimColor
+        self.claimDeadline = claimDeadline
         self.onTap = onTap
     }
 
@@ -55,6 +61,8 @@ struct BoardGridView: View {
         collectionTargetID: String? = nil,
         pileFrames: PileFrames = PileFrames(),
         isInteractive: Bool = true,
+        claimColor: Color? = nil,
+        claimDeadline: Date? = nil,
         onTap: @escaping (Card) -> Void
     ) {
         self.table = table
@@ -67,6 +75,8 @@ struct BoardGridView: View {
         self.collectionTargetID = collectionTargetID
         self.pileFrames = pileFrames
         self.isInteractive = isInteractive
+        self.claimColor = claimColor
+        self.claimDeadline = claimDeadline
         self.onTap = onTap
     }
 
@@ -157,7 +167,12 @@ struct BoardGridView: View {
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(width: gridWidth, height: gridHeight)
+                .overlay {
+                    if let claimColor {
+                        PartyClaimOutline(color: claimColor, deadline: claimDeadline)
+                    }
+                }
                 .animation(.spring(duration: 0.4), value: table)
                 .animation(.spring(duration: 0.25), value: selectedIDs)
 

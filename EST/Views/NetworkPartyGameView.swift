@@ -10,26 +10,25 @@ struct NetworkPartyGameView: View {
     var onExit: () -> Void
 
     var body: some View {
-        ZStack {
-            VStack(spacing: 10) {
-                opponentsRow
+        VStack(spacing: 10) {
+            gameChrome
+            opponentsRow
 
-                adaptiveBoard
+            adaptiveBoard
 
-                HStack(spacing: 12) {
-                    if let me = session.localPlayer {
-                        Text(me.name)
-                            .font(.headline.bold())
-                            .foregroundStyle(me.color)
-                            .frame(width: GameButtonStyle.Size.large.height)
-                    }
-                    localBuzzButton
-                    if let me = session.localPlayer {
-                        PlayerDeckView(
-                            cardCount: me.cardCount,
-                            frameID: "player-\(me.id)"
-                        )
-                    }
+            HStack(spacing: 12) {
+                if let me = session.localPlayer {
+                    Text(me.name)
+                        .font(.headline.bold())
+                        .foregroundStyle(me.color)
+                        .frame(width: GameButtonStyle.Size.large.height)
+                }
+                localBuzzButton
+                if let me = session.localPlayer {
+                    PlayerDeckView(
+                        cardCount: me.cardCount,
+                        frameID: "player-\(me.id)"
+                    )
                 }
             }
         }
@@ -37,9 +36,6 @@ struct NetworkPartyGameView: View {
         .coordinateSpace(name: "game")
         .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
         .background(Appearance.shared.gameBackground)
-        .overlay(alignment: .topTrailing) {
-            exitButton.padding(4)
-        }
         .confirmationDialog("Leave the match?", isPresented: $showExitConfirm, titleVisibility: .visible) {
             Button("Leave match", role: .destructive) { exit() }
             Button("Keep playing", role: .cancel) {}
@@ -128,18 +124,22 @@ struct NetworkPartyGameView: View {
         onExit()
     }
 
+    private var gameChrome: some View {
+        HStack {
+            exitButton
+            Spacer()
+        }
+        .frame(height: GameButtonStyle.Size.icon.height)
+    }
+
     private var exitButton: some View {
-        Button {
+        GameExitButton(action: {
             if session.isFinished || session.someoneLeft {
                 exit()
             } else {
                 showExitConfirm = true
             }
-        } label: {
-            Image(systemName: "xmark.circle.fill")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-        }
+        }, accessibilityLabel: "Leave match")
     }
 
     private var activePlayer: NetworkPartySession.PlayerDisplay? {
@@ -183,17 +183,11 @@ struct NetworkPartyGameView: View {
             collectedCount: session.doneCount,
             collectionTargetID: session.lastCollectorID.map { "player-\($0)" },
             pileFrames: pileFrames,
-            isInteractive: session.activePlayerID == session.localID && !session.isFinished
+            isInteractive: session.activePlayerID == session.localID && !session.isFinished,
+            claimColor: activePlayer?.color,
+            claimDeadline: session.claimDeadline
         ) { card in
             session.selectLocal(card)
-        }
-        .overlay {
-            if let active = activePlayer {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(active.color, lineWidth: 3)
-                    .padding(-8)
-                    .allowsHitTesting(false)
-            }
         }
         .overlay(alignment: .bottom) {
             MismatchExplainer(
@@ -250,6 +244,7 @@ struct NetworkPartyGameView: View {
             let isActive = session.activePlayerID == session.localID
             let isLocked = me?.isLocked(at: now) ?? false
             let enabled = session.canBuzzLocally(at: now)
+            let isUnavailable = !enabled && !isActive
             let color = me?.color ?? .accentColor
 
             Button {
@@ -260,7 +255,8 @@ struct NetworkPartyGameView: View {
                     Text("SET")
                         .font(.headline.bold())
                     if isActive, let deadline = session.claimDeadline {
-                        let progress = max(0, deadline.timeIntervalSince(now) / PartySession.claimWindow)
+                        let claimWindow = ClaimRace<String>.Configuration.standard.claimWindow
+                        let progress = max(0, deadline.timeIntervalSince(now) / claimWindow)
                         GeometryReader { proxy in
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(.white)
@@ -278,7 +274,7 @@ struct NetworkPartyGameView: View {
                 .frame(height: GameButtonStyle.Size.large.height)
                 .glassButtonSurface(
                     tint: color,
-                    opacity: isActive ? 1 : isLocked ? 0.25 : 0.85,
+                    opacity: isActive ? 1 : isLocked || isUnavailable ? 0.25 : 0.85,
                     cornerRadius: 16
                 )
                 .foregroundStyle(.white)
@@ -317,7 +313,7 @@ struct NetworkPartyGameView: View {
                 VaryingTitleView(fontSize: 40)
                 content()
                 Button("Menu", action: exit)
-                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                    .buttonStyle(.game(.primary, tint: .second, size: .large))
                     .padding(.horizontal, 24)
             }
             .padding(32)

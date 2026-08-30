@@ -45,10 +45,11 @@ struct TitleView: View {
     var onQuickSolo: () -> Void
     var onParty: (Int) -> Void
     var onOnlineParty: () -> Void
+    var onLeaderboards: () -> Void
+    @Binding var showSettings: Bool
 
     @State private var showRules = false
     @State private var showPlayStyle = false
-    @State private var showSettings = false
     @State private var demoCards = Card.randomValidSet()
 
     var body: some View {
@@ -63,7 +64,7 @@ struct TitleView: View {
                     demoCards = Card.randomValidSet()
                 }
             }
-            Text("A game of card patterns")
+            Text("A game of patterns")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text("81 cards. Every combination. Find three where\nevery trait is all the same or all different.")
@@ -81,12 +82,12 @@ struct TitleView: View {
                     Button(action: onSolo) {
                         Label("Solo 81", systemImage: "timer")
                     }
-                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                    .buttonStyle(.game(.primary, tint: .second, size: .large))
 
                     Button(action: onQuickSolo) {
                         Label("Quick 27", systemImage: "bolt.fill")
                     }
-                    .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
+                    .buttonStyle(.game(.secondary, tint: .third, size: .large))
                 }
 
                 if supportsFourPlayerMode {
@@ -96,7 +97,7 @@ struct TitleView: View {
                         } label: {
                             Label("Duel, one phone", systemImage: "person.2.fill")
                         }
-                        .buttonStyle(.game(.secondary, tint: .red, size: .large))
+                        .buttonStyle(.game(.secondary, tint: .first, size: .large))
 
                         Button {
                             onParty(PartySession.maximumPlayerCount)
@@ -106,7 +107,7 @@ struct TitleView: View {
                                 systemImage: "person.3.fill"
                             )
                         }
-                        .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
+                        .buttonStyle(.game(.secondary, tint: .third, size: .large))
                     }
                 } else {
                     Button {
@@ -114,7 +115,7 @@ struct TitleView: View {
                     } label: {
                         Label("Duel, one phone", systemImage: "person.2.fill")
                     }
-                    .buttonStyle(.game(.secondary, tint: .red))
+                    .buttonStyle(.game(.secondary, tint: .first))
                 }
 
                 Button(action: onOnlineParty) {
@@ -123,7 +124,7 @@ struct TitleView: View {
                         systemImage: "antenna.radiowaves.left.and.right"
                     )
                 }
-                .buttonStyle(.game(.secondary, tint: .red))
+                .buttonStyle(.game(.secondary, tint: .first))
                 .disabled(!GameCenterManager.shared.isAuthenticated)
 
                 Button {
@@ -131,7 +132,7 @@ struct TitleView: View {
                 } label: {
                     Label("Your play style", systemImage: "chart.bar.xaxis")
                 }
-                .buttonStyle(.game(.quiet, tint: .blue, size: .compact))
+                .buttonStyle(.game(.quiet, tint: .second, size: .compact))
 
                 HStack(spacing: 12) {
                     Button {
@@ -142,7 +143,7 @@ struct TitleView: View {
                     .buttonStyle(.game(.quiet, size: .compact))
 
                     Button {
-                        GameCenterManager.shared.showLeaderboard()
+                        onLeaderboards()
                     } label: {
                         Label("Leaderboard", systemImage: "trophy")
                     }
@@ -191,6 +192,7 @@ private struct DemoCardSlot: View {
 
     @State private var displayedCard: Card
     @State private var angle: Double = 0
+    @State private var showingEdgeFrame = false
 
     init(card: Card) {
         self.card = card
@@ -206,11 +208,10 @@ private struct DemoCardSlot: View {
                     perspective: 0.65
                 )
 
-            if edgeOpacity > 0 {
+            if showingEdgeFrame {
                 RoundedRectangle(cornerRadius: 1)
                     .fill(Appearance.shared.theme.cardBorder)
                     .frame(width: 2, height: 84)
-                    .opacity(edgeOpacity)
             }
         }
             .task(id: card.id) {
@@ -219,14 +220,9 @@ private struct DemoCardSlot: View {
             }
     }
 
-    private var edgeOpacity: Double {
-        let distanceFromFace = abs(angle)
-        guard distanceFromFace > 72 else { return 0 }
-        return min(1, (distanceFromFace - 72) / 18)
-    }
-
     @MainActor
     private func flip(to newCard: Card) async {
+        showingEdgeFrame = false
         withAnimation(.easeInOut(duration: 0.32)) {
             angle = 90
         }
@@ -234,11 +230,19 @@ private struct DemoCardSlot: View {
         try? await Task.sleep(for: .seconds(0.32))
         guard !Task.isCancelled else { return }
 
+        // The edge cue is its own state rather than an angle threshold, so it
+        // cannot fade in while the card is still face-on or linger after the
+        // card has started the second half of the flip.
+        showingEdgeFrame = true
+        try? await Task.sleep(for: .seconds(1.0 / 60.0))
+        guard !Task.isCancelled else { return }
+
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             displayedCard = newCard
             angle = -90
+            showingEdgeFrame = false
         }
 
         withAnimation(.easeInOut(duration: 0.32)) {
@@ -266,7 +270,7 @@ struct RulesView: View {
                         } label: {
                             Label("Walk me through it", systemImage: "graduationcap")
                         }
-                        .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                        .buttonStyle(.game(.primary, tint: .second, size: .large))
 
                         NavigationLink {
                             MathVisualizerView()
@@ -341,7 +345,7 @@ struct RulesView: View {
                         ruleRow(
                             "hand.tap",
                             "In a duel",
-                            "Buzz first, then tap the three cards within \(Int(PartySession.claimWindow)) seconds. A miss costs a point and a short lockout."
+                            "Buzz first, then tap the three cards within \(Int(ClaimRace<Int>.Configuration.standard.claimWindow)) seconds. A miss costs a point and a short lockout."
                         )
                     }
 
@@ -361,6 +365,8 @@ struct RulesView: View {
             .background(Appearance.shared.gameBackground.ignoresSafeArea())
             .navigationTitle("How to play")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Appearance.shared.gameBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

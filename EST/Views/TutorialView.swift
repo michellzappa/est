@@ -85,7 +85,7 @@ struct TutorialView: View {
                     } label: {
                         Label("Hint", systemImage: "lightbulb")
                     }
-                    .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
+                    .buttonStyle(.game(.secondary, tint: .third, size: .large))
                     .disabled(practiceSolved)
                 }
                 Button(step == Self.stepCount - 1 ? "Play" : "Next") {
@@ -95,7 +95,7 @@ struct TutorialView: View {
                         withAnimation(.spring(duration: 0.35)) { step += 1 }
                     }
                 }
-                .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                .buttonStyle(.game(.primary, tint: .second, size: .large))
                 .disabled(step == 4 && !practiceSolved)
             }
         }
@@ -259,7 +259,7 @@ struct TutorialView: View {
             ruleRow("plus.rectangle.on.rectangle", "No set on the table?", "The game deals three more cards until a set appears.")
             ruleRow("timer", "Solo 81", "Clear the deck against the clock. Hints keep the run off the leaderboard.")
             ruleRow("bolt.fill", "Quick 27", "Play the 27 solid cards. The fill never changes, so you check three traits.")
-            ruleRow("person.2.fill", "Duel", "On one phone or two, buzz first and then tap the three cards within \(Int(PartySession.claimWindow)) seconds. Miss and you lose a point and sit out briefly.")
+            ruleRow("person.2.fill", "Duel", "On one phone or two, buzz first and then tap the three cards within \(Int(ClaimRace<Int>.Configuration.standard.claimWindow)) seconds. Miss and you lose a point and sit out briefly.")
 
             paragraph("At the end, the remaining cards are simply the ones nobody claimed.")
         }

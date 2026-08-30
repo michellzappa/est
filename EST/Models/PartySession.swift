@@ -8,13 +8,10 @@ import Observation
 final class PartySession {
     static let minimumPlayerCount = 2
     static let maximumPlayerCount = 4
-    static let claimWindow: TimeInterval = 5.0
-    static let lockoutDuration: TimeInterval = 4.0
 
-    /// The shared-device table grows to four seats whenever the window has a
-    /// large enough, square-ish footprint for a player on every edge. This
-    /// covers iPad and unfolded large-screen iPhone windows without enabling
-    /// four-up on a normal narrow iPhone.
+    /// iPad always offers the four-seat table, including narrow or rotated
+    /// windows. Large, square-ish iPhone windows get the same option when
+    /// their available footprint can support a player on every edge.
     static var playerCountOptions: [Int] {
         supportsFourPlayerMode(in: UIScreen.main.bounds.size)
             ? [minimumPlayerCount, maximumPlayerCount]
@@ -25,7 +22,14 @@ final class PartySession {
         "one device"
     }
 
-    static func supportsFourPlayerMode(in size: CGSize) -> Bool {
+    static func supportsFourPlayerMode(
+        in size: CGSize,
+        userInterfaceIdiom: UIUserInterfaceIdiom = UIDevice.current.userInterfaceIdiom
+    ) -> Bool {
+        if userInterfaceIdiom == .pad {
+            return true
+        }
+
         let shortestSide = min(size.width, size.height)
         let longestSide = max(size.width, size.height)
         guard shortestSide >= 600 else { return false }
@@ -75,11 +79,10 @@ final class PartySession {
 
     let engine = GameEngine()
     private(set) var players: [Player]
-    private(set) var activePlayerID: Int?
     private(set) var lastCollectorID: Int?
-    private(set) var claimDeadline: Date?
     private(set) var penaltyToken = 0
 
+    private var claimRace = ClaimRace<Int>()
     private var expiryTask: Task<Void, Never>?
 
     init(playerCount: Int) {
@@ -96,25 +99,24 @@ final class PartySession {
         return players.first { $0.id == activePlayerID }
     }
 
+    var activePlayerID: Int? { claimRace.activePlayerID }
+    var claimDeadline: Date? { claimRace.claimDeadline }
+
     var winners: [Player] {
         let top = players.map(\.score).max() ?? 0
         return players.filter { $0.score == top }
     }
 
     func canBuzz(_ id: Int, at now: Date = .now) -> Bool {
-        guard !engine.isFinished, activePlayerID == nil else { return false }
-        guard let player = players.first(where: { $0.id == id }) else { return false }
-        return !player.isLocked(at: now)
+        guard !engine.isFinished, players.contains(where: { $0.id == id }) else { return false }
+        return claimRace.canClaim(id, at: now)
     }
 
     func buzz(_ id: Int) {
-        guard canBuzz(id) else { return }
-        activePlayerID = id
-        let deadline = Date.now.addingTimeInterval(Self.claimWindow)
-        claimDeadline = deadline
+        guard canBuzz(id), claimRace.claim(id) != nil else { return }
         expiryTask?.cancel()
         expiryTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Self.claimWindow))
+            try? await Task.sleep(for: .seconds(ClaimRace<Int>.Configuration.standard.claimWindow))
             guard !Task.isCancelled, let self else { return }
             await MainActor.run { self.expireClaim() }
         }
@@ -122,47 +124,47 @@ final class PartySession {
 
     /// Board taps route through here; ignored unless someone holds the claim.
     func select(_ card: Card) -> GameEngine.SelectionOutcome {
-        guard activePlayerID != nil else { return .pending }
-        let claimingPlayerID = activePlayerID
+        guard let claimingPlayerID = activePlayerID else { return .pending }
         let outcome = engine.select(card)
         switch outcome {
         case .pending:
             break
         case .matched(let cards):
             lastCollectorID = claimingPlayerID
-            award(cards: cards)
-            endClaim()
+            award(cards: cards, to: claimingPlayerID)
+            endClaim(heldBy: claimingPlayerID)
         case .mismatched:
-            penalize()
-            endClaim()
+            penalize(claimingPlayerID)
+            endClaim(heldBy: claimingPlayerID)
         }
         return outcome
     }
 
     private func expireClaim() {
-        guard activePlayerID != nil else { return }
+        guard let playerID = claimRace.expire() else { return }
         engine.clearSelection()
-        penalize()
-        endClaim()
+        expiryTask = nil
+        penalize(playerID)
     }
 
-    private func award(cards: [Card]) {
-        guard let i = players.firstIndex(where: { $0.id == activePlayerID }) else { return }
+    private func award(cards: [Card], to playerID: Int) {
+        guard let i = players.firstIndex(where: { $0.id == playerID }) else { return }
         players[i].score += 1
         players[i].collectedCards.append(contentsOf: cards)
     }
 
-    private func penalize() {
-        guard let i = players.firstIndex(where: { $0.id == activePlayerID }) else { return }
+    private func penalize(_ playerID: Int) {
+        guard let i = players.firstIndex(where: { $0.id == playerID }) else { return }
         players[i].score = max(0, players[i].score - 1)
-        players[i].lockedUntil = Date.now.addingTimeInterval(Self.lockoutDuration)
+        // `ClaimRace` is the source of truth; the player carries this only
+        // because the shared table presentation renders plain player values.
+        players[i].lockedUntil = claimRace.penalize(playerID)
         penaltyToken += 1
     }
 
-    private func endClaim() {
+    private func endClaim(heldBy playerID: Int) {
         expiryTask?.cancel()
         expiryTask = nil
-        activePlayerID = nil
-        claimDeadline = nil
+        _ = claimRace.releaseClaim(heldBy: playerID)
     }
 }

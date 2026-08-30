@@ -26,15 +26,18 @@ struct PlayStyleView: View {
                     Button("Reset learning stats", role: .destructive) {
                         showResetConfirmation = true
                     }
-                    .buttonStyle(.game(.quiet, tint: .red, size: .compact))
+                    .buttonStyle(.game(.quiet, tint: .first, size: .compact))
                     .frame(maxWidth: .infinity)
                     .padding(.top, 4)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
             }
             .background(Appearance.shared.gameBackground)
             .navigationTitle("Your play style")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Appearance.shared.gameBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -64,6 +67,7 @@ struct PlayStyleView: View {
         }
         .padding(16)
         .glassPanel(cornerRadius: 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var emptyState: some View {
@@ -81,6 +85,7 @@ struct PlayStyleView: View {
         .frame(maxWidth: .infinity)
         .padding(28)
         .glassPanel(cornerRadius: 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var overview: some View {
@@ -217,6 +222,7 @@ struct PlayStyleView: View {
             opacity: 0.10,
             cornerRadius: 18
         )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var tipText: String {
@@ -256,5 +262,6 @@ private extension View {
     func sectionSurface() -> some View {
         padding(16)
             .glassPanel(cornerRadius: 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

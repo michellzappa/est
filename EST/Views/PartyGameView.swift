@@ -28,22 +28,21 @@ struct PartyGameView: View {
     }
 
     var body: some View {
-        Group {
-            if usesFourPlayerLayout {
-                fourPlayerLayout
-            } else {
-                twoPlayerLayout
+        VStack(spacing: 0) {
+            gameChrome
+
+            Group {
+                if usesFourPlayerLayout {
+                    fourPlayerLayout
+                } else {
+                    twoPlayerLayout
+                }
             }
         }
         .padding()
         .coordinateSpace(name: "game")
         .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
         .background(Appearance.shared.gameBackground)
-        .overlay(alignment: .topTrailing) {
-            exitButton
-                .padding(.top, usesFourPlayerLayout ? 16 : 4)
-                .padding(.trailing, usesFourPlayerLayout ? 16 : 4)
-        }
         .confirmationDialog("End this game?", isPresented: $showExitConfirm, titleVisibility: .visible) {
             Button("End game", role: .destructive) { onExit() }
             Button("Keep playing", role: .cancel) {}
@@ -111,6 +110,14 @@ struct PartyGameView: View {
                 }
             }
         }
+    }
+
+    private var gameChrome: some View {
+        HStack {
+            exitButton
+            Spacer()
+        }
+        .frame(height: GameButtonStyle.Size.icon.height)
     }
 
     private var twoPlayerLayout: some View {
@@ -213,17 +220,11 @@ struct PartyGameView: View {
             engine: session.engine,
             collectionTargetID: session.lastCollectorID.map { "player-\($0)" },
             pileFrames: pileFrames,
-            isInteractive: session.activePlayerID != nil && !session.engine.isFinished
+            isInteractive: session.activePlayerID != nil && !session.engine.isFinished,
+            claimColor: session.activePlayer?.color,
+            claimDeadline: session.claimDeadline
         ) { card in
             _ = session.select(card)
-        }
-        .overlay {
-            if let active = session.activePlayer {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(active.color, lineWidth: 3)
-                    .padding(-8)
-                    .allowsHitTesting(false)
-            }
         }
         .overlay(alignment: .bottom) {
             MismatchExplainer(
@@ -235,18 +236,13 @@ struct PartyGameView: View {
     }
 
     private var exitButton: some View {
-        Button {
+        GameExitButton {
             if session.engine.isFinished {
                 onExit()
             } else {
                 showExitConfirm = true
             }
-        } label: {
-            Image(systemName: "xmark.circle.fill")
-                .font(.title3)
         }
-        .buttonStyle(.game(.quiet, tint: .red, size: .icon))
-        .accessibilityLabel("End game")
     }
 
     private func playerRow(_ players: [PartySession.Player], flipped: Bool) -> some View {
@@ -309,6 +305,63 @@ struct PartyGameView: View {
     }
 }
 
+/// Animated claim indicator for party mode. The pulse starts restrained and
+/// accelerates as the claim window gets close to expiring.
+struct PartyClaimOutline: View {
+    let color: Color
+    let deadline: Date?
+
+    @Environment(\.estReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+            let values = pulseValues(at: context.date)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(color.opacity(values.glowOpacity), lineWidth: values.lineWidth + 4)
+                    .blur(radius: values.glowRadius)
+
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(color.opacity(values.opacity), lineWidth: values.lineWidth)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func pulseValues(at date: Date) -> PulseValues {
+        guard !reduceMotion else {
+            return PulseValues(opacity: 0.9, glowOpacity: 0.18, lineWidth: 3, glowRadius: 4)
+        }
+
+        let claimWindow = ClaimRace<Int>.Configuration.standard.claimWindow
+        let remaining = max(0, deadline?.timeIntervalSince(date) ?? claimWindow)
+        let elapsed = min(max(claimWindow - remaining, 0), claimWindow)
+        let progress = elapsed / claimWindow
+        let startingCyclesPerSecond = 0.35
+        let endingCyclesPerSecond = 1.8
+        let frequencySlope = (endingCyclesPerSecond - startingCyclesPerSecond) / claimWindow
+        let completedCycles = startingCyclesPerSecond * elapsed
+            + 0.5 * frequencySlope * elapsed * elapsed
+        let phase = completedCycles * 2 * .pi
+        let wave = 0.5 + 0.5 * sin(phase - .pi / 2)
+
+        return PulseValues(
+            opacity: 0.22 + wave * (0.48 + progress * 0.24),
+            glowOpacity: 0.06 + wave * (0.18 + progress * 0.16),
+            lineWidth: 2.4 + wave * (1.1 + progress * 1.0),
+            glowRadius: 3 + wave * (4 + progress * 4)
+        )
+    }
+
+    private struct PulseValues {
+        let opacity: Double
+        let glowOpacity: Double
+        let lineWidth: CGFloat
+        let glowRadius: CGFloat
+    }
+}
+
 /// A player's claim button is deliberately just the SET action. While they
 /// hold the claim, it also shows a draining countdown bar for the selection
 /// window; identity and score live beside it in the seat layout.
@@ -323,6 +376,7 @@ private struct BuzzButton: View {
             let isActive = session.activePlayerID == playerID
             let isLocked = player.isLocked(at: now)
             let enabled = session.canBuzz(playerID, at: now)
+            let isUnavailable = !enabled && !isActive
 
             Button {
                 guard session.canBuzz(playerID) else { return }
@@ -332,7 +386,8 @@ private struct BuzzButton: View {
                     Text("SET")
                         .font(.headline.bold())
                     if isActive, let deadline = session.claimDeadline {
-                        let progress = max(0, deadline.timeIntervalSince(now) / PartySession.claimWindow)
+                        let claimWindow = ClaimRace<Int>.Configuration.standard.claimWindow
+                        let progress = max(0, deadline.timeIntervalSince(now) / claimWindow)
                         GeometryReader { proxy in
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(.white)
@@ -350,7 +405,7 @@ private struct BuzzButton: View {
                 .frame(height: GameButtonStyle.Size.large.height)
                 .glassButtonSurface(
                     tint: player.color,
-                    opacity: isActive ? 1 : isLocked ? 0.25 : 0.8,
+                    opacity: isActive ? 1 : isLocked || isUnavailable ? 0.25 : 0.8,
                     cornerRadius: 14
                 )
                 .foregroundStyle(.white)
@@ -404,7 +459,7 @@ private struct PartyGameOverView: View {
             .padding(.horizontal, 32)
 
             Button("Menu", action: onExit)
-                .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                .buttonStyle(.game(.primary, tint: .second, size: .large))
                 .padding(.horizontal, 24)
         }
         .padding(32)

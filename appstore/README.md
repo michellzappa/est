@@ -21,6 +21,14 @@ Then generate the raw captures, product-page panels, and ASC upload set:
 ./scripts/appstore.sh prepare
 ```
 
+Metadata-only validation, which does not require a simulator or generated
+screenshots, is available with:
+
+```bash
+node appstore/metadata.mjs
+node appstore/validate.mjs --metadata-only
+```
+
 That regenerates the Xcode project from `project.yml`, captures an iPhone 16
 Pro Max simulator with Apple's 9:41 status bar, stages the screenshots at
 1320×2868, generates metadata, and runs both local validators. Set
@@ -52,7 +60,7 @@ The installed CLI uses Apple's web session flow for that one step:
 
 The command prompts securely for the Apple Account password and two-factor
 code. It creates iOS app `EST`, bundle ID `com.centaur-labs.est`, SKU `EST`, and
-version `0.1.0`. Copy the returned numeric App Store Connect app ID.
+version `1.0.0`. Copy the returned numeric App Store Connect app ID.
 
 Then run:
 
@@ -68,7 +76,10 @@ The leaderboard setup uses centiseconds, with score-range floors of 1,800
 (18.00 seconds) for Solo 81 and 450 (4.50 seconds) for Quick 27. The setup
 script requires an `asc` version that supports
 `ELAPSED_TIME_CENTISECOND`; it will stop instead of creating a leaderboard
-with the legacy millisecond formatter.
+with the legacy millisecond formatter. `asc` 4.x supports that formatter;
+`asc` 3.x does not. The scripts target `asc` 4.x, which renamed
+`review submit --build` to `--build-id` and removed `--public-provider-id`
+from `web apps create`.
 
 ## Optional support purchase
 
@@ -78,7 +89,7 @@ Create this product manually in App Store Connect before submitting:
 - Type: Non-Consumable
 - Display name: `Support EST`
 - Price: `$10.00` / `£10.00` / `€10.00` in the relevant storefronts
-- Description: `A one-time gift that keeps EST free and independent. No gameplay is locked. Supporters receive a mark, an optional cosmetic finish, and early-access invites when available.`
+- Description: `A one-time gift that keeps EST free and independent. No gameplay is locked. Supporters receive a mark, optional Dusk card colors, a warm background setting, and early-access invites when available.`
 
 The app is playable without a purchase. `Config/ESTSupport.storekit` contains
 the local StoreKit test configuration, and the generated EST scheme uses it for
@@ -88,9 +99,6 @@ Supporter operations remain deliberately personal and opt-in:
 
 - Add supporters to an early-access TestFlight group manually when a build is
   ready; the app cannot assign Apple TestFlight groups itself.
-- A supporter who wants public thanks can use the in-app GitHub link to request
-  a name. Publish only the requested display name in the project's credits or
-  supporters list; never infer it from an Apple receipt.
 
 The scripts use `https://github.com/michellzappa/est` for the public repository.
 If the repository moves, update `appstore/appstore.md`, `PRIVACY.md`, and the
@@ -98,9 +106,15 @@ setup script before uploading.
 
 ## Build, upload, and submit
 
-The API key already used by the local Centaur projects can be supplied through
-`~/.cartogram-secrets` (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_PATH`). The
-`asc` CLI receives the same key through `ASC_PRIVATE_KEY_PATH` in the wrapper.
+The publishing script does not contain a default Apple Developer Team ID. Set
+`EST_TEAM_ID` to the team that owns your app before using `setup` or
+`publish`. `create` no longer needs it: `asc` 4.x removed the provider flag
+and the web session prompts for the team when the account owns more than one.
+
+The App Store Connect API key can be supplied through
+`~/.est-asc-secrets` (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_PATH`). The
+`EST_ASC_SECRETS` environment variable can point to another file. The `asc`
+CLI receives the same key through `ASC_PRIVATE_KEY_PATH` in the wrapper.
 
 ```bash
 ./scripts/appstore.sh publish <APP_ID>
@@ -108,7 +122,7 @@ The API key already used by the local Centaur projects can be supplied through
 ```
 
 `publish` archives the Release build, uploads it, waits for processing, creates
-or updates the `0.1.0` version, and applies version metadata. The local Mac
+or updates the `1.0.0` version, and applies version metadata. The local Mac
 must have an Apple Distribution certificate/profile available for automatic
 signing; the App Store Connect API key authenticates API/upload operations but
 does not replace the local distribution identity.
@@ -132,6 +146,6 @@ The first and last name default to `Michell Zappa`; override them with
 Finally, inspect the readiness report and submit explicitly:
 
 ```bash
-asc validate --app <APP_ID> --version 0.1.0 --platform IOS --output table
+asc validate --app <APP_ID> --version 1.0.0 --platform IOS --output table
 ./scripts/appstore.sh submit <APP_ID>
 ```

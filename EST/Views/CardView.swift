@@ -10,6 +10,9 @@ struct CardView: View {
 
     @State private var hoverLocation: CGPoint?
     @State private var isHovering = false
+    @Environment(\.estReduceMotion) private var reduceMotion
+    @Environment(\.estHighContrast) private var highContrast
+    @Environment(\.estColorBlindAssist) private var colorBlindAssist
 
     private static let referenceCardSide: CGFloat = 100
     private static let symbolGrowthRate = 2.0 / 3.0
@@ -27,8 +30,8 @@ struct CardView: View {
                 max((hoverLocation?.y ?? side / 2) / max(side, 1), 0),
                 1
             )
-            let hoverTiltX = isHovering ? (0.5 - normalizedHoverY) * 7 : 0
-            let hoverTiltY = isHovering ? (normalizedHoverX - 0.5) * 7 : 0
+            let hoverTiltX = !reduceMotion && isHovering ? (0.5 - normalizedHoverY) * 7 : 0
+            let hoverTiltY = !reduceMotion && isHovering ? (normalizedHoverX - 0.5) * 7 : 0
 
             ZStack {
                 RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
@@ -57,11 +60,26 @@ struct CardView: View {
                             ? card.tint.color
                             : isHovering
                                 ? card.tint.color.opacity(0.75)
-                                : Appearance.shared.theme.cardBorder,
-                        lineWidth: isSelected ? 3 : isHovering ? 2 : 1
+                            : Appearance.shared.theme.cardBorder,
+                        lineWidth: isSelected ? 3 : isHovering ? 2 : highContrast ? 2 : 1
                     )
 
                 symbols(side: side)
+
+                if colorBlindAssist {
+                    Text(card.tint.accessibilityMarker)
+                        .font(.system(size: max(8, side * 0.10), weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .frame(width: max(16, side * 0.18), height: max(16, side * 0.18))
+                        .background(.background.opacity(0.88), in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .stroke(.primary.opacity(highContrast ? 0.55 : 0.25), lineWidth: highContrast ? 1.5 : 1)
+                        }
+                        .padding(side * 0.08)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .accessibilityHidden(true)
+                }
             }
             .scaleEffect((isSelected ? 1.06 : 1) * (isHovering ? 1.035 : 1))
             .rotation3DEffect(
@@ -85,12 +103,12 @@ struct CardView: View {
             case .active(let location):
                 hoverLocation = location
                 if !isHovering {
-                    withAnimation(.spring(duration: 0.18, bounce: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .spring(duration: 0.18, bounce: 0.15)) {
                         isHovering = true
                     }
                 }
             case .ended:
-                withAnimation(.easeOut(duration: 0.16)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
                     isHovering = false
                     hoverLocation = nil
                 }

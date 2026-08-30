@@ -54,8 +54,8 @@ version.description = parsed.fields.description;
 version.keywords = parsed.fields.keywords;
 
 mkdirSync(join(OUTPUT, "app-info"), { recursive: true });
-mkdirSync(join(OUTPUT, "version", "0.1.0"), { recursive: true });
+mkdirSync(join(OUTPUT, "version", "1.0.0"), { recursive: true });
 writeFileSync(join(OUTPUT, "app-info", `${LOCALE}.json`), `${JSON.stringify(appInfo, null, 2)}\n`);
-writeFileSync(join(OUTPUT, "version", "0.1.0", `${LOCALE}.json`), `${JSON.stringify(version, null, 2)}\n`);
+writeFileSync(join(OUTPUT, "version", "1.0.0", `${LOCALE}.json`), `${JSON.stringify(version, null, 2)}\n`);
 
 console.log(`✓ ${parsed.platform} (${parsed.bundleId}) → appstore/metadata/`);

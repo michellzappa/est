@@ -34,8 +34,9 @@ remain local-only.
 
 Hints keep the run off the Game Center leaderboard, but you can still set a
 local personal best. EST has no ads or subscriptions. An optional one-time
-support purchase adds a permanent supporter mark and an optional cosmetic
-finish, while leaving every mode and gameplay feature free for everyone.
+support purchase adds a permanent supporter mark, optional Dusk card colors, and
+an optional warm background,
+while leaving every mode and gameplay feature free for everyone.
 
 ## Why EST
 
@@ -100,6 +101,18 @@ simulator, are needed to test a network duel.
 Do not hand-edit `EST.xcodeproj`. Regenerate it after adding or removing a
 source file.
 
+### Forks and telemetry
+
+The first-party build reports to the dedicated EST Worker, with anonymous
+diagnostics enabled by default on new installs and adjustable in Settings. If
+you distribute a fork, set your own `ESTTelemetryEndpoint` and
+`ESTFeedbackEndpoint` Info.plist
+build settings—or leave either unset—only after reviewing the collection
+contract and privacy policy. Also replace the Centaur Labs team,
+bundle identifier, Game Center configuration, and optional StoreKit product
+identifiers with values you control. App Store publishing also requires an
+explicit `EST_TEAM_ID` for your Apple Developer account.
+
 ## Repository layout
 
 - `EST/Models` contains the card model, set math, game engine, and multiplayer
@@ -112,9 +125,12 @@ source file.
 
 ## Contributing
 
-Bug reports, copy edits, and small code changes are welcome. Open an issue
-before a larger change so the direction is clear, then include the clean build
-command above in your pull request or issue notes.
+Bug reports, copy edits, and small code changes are welcome. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the local build and test workflow. Open
+an issue before a larger change so the direction is clear, then include the
+clean build command above in your pull request or issue notes.
+
+For security reports, see [SECURITY.md](SECURITY.md).
 
 Keep the set-validation logic in `Card`, and keep table behavior in
 `GameEngine`. That separation lets the tutorial, solo game, and multiplayer
@@ -123,7 +139,8 @@ views use the same rules.
 ## Privacy
 
 EST stores preferences and personal bests on the device. Optional anonymous
-diagnostics send one coarse aggregate batch per week when enabled, including
+diagnostics send one coarse aggregate record per week when enabled and
+configured, including
 activity totals such as games started, games completed, and sets found; they
 never include personal data or per-game events. Game Center handles its own
 account, leaderboard, and matchmaking data. See the [privacy policy](PRIVACY.md)

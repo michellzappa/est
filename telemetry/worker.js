@@ -18,9 +18,11 @@ const ALLOWED_FEATURES = new Set([
 const ALLOWED_COHORTS = new Set(["new", "returning", "reactivated"]);
 const ALLOWED_DEVICE_FAMILIES = new Set(["iphone", "ipad"]);
 const RETENTION_DAYS = 180;
-// EST is currently in testing, so the in-app pulse is visible from one
-// reporting device. Raise this before a public release if cohort privacy is
-// required.
+const FEEDBACK_RECIPIENT = "mz@centaur-labs.io";
+const MAX_FEEDBACK_LENGTH = 5000;
+const MAX_FEEDBACK_BODY_BYTES = 12000;
+// Keep this at one while the app is being tested so a single install can show
+// its aggregate. Raise it before a public release if cohort privacy is needed.
 const COMMUNITY_MINIMUM_GROUP_SIZE = 1;
 const COMMUNITY_HISTORY_WEEKS = 12;
 
@@ -39,6 +41,93 @@ function boundedString(value, max) {
   return typeof value === "string" && value.length > 0 && value.length <= max
     ? value
     : null;
+}
+
+function feedbackMessage(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, " ")
+    .trim();
+  return normalized.length > 0 && normalized.length <= MAX_FEEDBACK_LENGTH
+    ? normalized
+    : null;
+}
+
+function sanitizeFeedback(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  if (payload.schema !== 1 || payload.product !== "est") return null;
+
+  const message = feedbackMessage(payload.message);
+  const app = payload.app;
+  if (!message || !app || typeof app !== "object") return null;
+
+  const version = boundedString(app.version, 32);
+  const build = boundedString(app.build, 64);
+  const iosMajor = Number.isInteger(app.ios_major)
+      && app.ios_major >= 13 && app.ios_major <= 99
+    ? app.ios_major
+    : null;
+  const deviceFamily = ALLOWED_DEVICE_FAMILIES.has(app.device_family)
+    ? app.device_family
+    : null;
+  if (!version || !build || iosMajor === null || !deviceFamily) return null;
+
+  const safe = {
+    message,
+    app: {
+      version,
+      build,
+      ios_major: iosMajor,
+      device_family: deviceFamily,
+    },
+  };
+  return JSON.stringify(safe).length <= MAX_FEEDBACK_BODY_BYTES ? safe : null;
+}
+
+async function sendFeedbackEmail(env, feedback) {
+  const apiKey = env.RESEND_API_KEY?.trim();
+  const from = env.FEEDBACK_FROM_EMAIL?.trim();
+  if (!apiKey || !from) {
+    console.error("[feedback] missing RESEND_API_KEY or FEEDBACK_FROM_EMAIL");
+    return false;
+  }
+
+  const { app, message } = feedback;
+  const text = [
+    "New EST feedback",
+    "",
+    `Version: ${app.version} (build ${app.build})`,
+    `iOS: ${app.ios_major}`,
+    `Device: ${app.device_family}`,
+    "",
+    "Message:",
+    message,
+  ].join("\n");
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [FEEDBACK_RECIPIENT],
+        subject: `[EST feedback] ${app.version} (${app.build})`,
+        text,
+      }),
+    });
+    if (!response.ok) {
+      console.error("[feedback] Resend rejected message", response.status);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[feedback] Resend request failed", error);
+    return false;
+  }
 }
 
 function safeActivity(value) {
@@ -265,6 +354,30 @@ export default {
         "access-control-allow-origin": "*",
         "cache-control": "public, max-age=300",
       });
+    }
+    if (request.method === "POST" && url.pathname === "/v1/feedback") {
+      const contentLength = Number(request.headers.get("content-length"));
+      if (Number.isFinite(contentLength) && contentLength > MAX_FEEDBACK_BODY_BYTES) {
+        return json({ error: "payload_too_large" }, 413);
+      }
+      if (!request.headers.get("content-type")?.toLowerCase()
+          .startsWith("application/json")) {
+        return json({ error: "content_type_required" }, 415);
+      }
+
+      let payload;
+      try {
+        payload = await request.json();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      const feedback = sanitizeFeedback(payload);
+      if (!feedback) return json({ error: "invalid_payload" }, 400);
+
+      if (!await sendFeedbackEmail(env, feedback)) {
+        return json({ error: "feedback_unavailable" }, 503);
+      }
+      return json({ ok: true });
     }
     if (request.method !== "POST" || url.pathname !== "/v1/batches") {
       return json({ error: "method_not_allowed" }, 405);

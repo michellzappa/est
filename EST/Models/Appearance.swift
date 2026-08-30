@@ -9,6 +9,26 @@ import Observation
 final class Appearance {
     static let shared = Appearance()
 
+    enum AccessibilitySetting: Int, CaseIterable {
+        case automatic, on, off
+
+        var name: String {
+            switch self {
+            case .automatic: "Auto"
+            case .on: "On"
+            case .off: "Off"
+            }
+        }
+
+        func resolved(using systemValue: Bool) -> Bool {
+            switch self {
+            case .automatic: systemValue
+            case .on: true
+            case .off: false
+            }
+        }
+    }
+
     enum FillStyle: Int, CaseIterable {
         case shaded, pinstriped
 
@@ -21,14 +41,13 @@ final class Appearance {
     }
 
     enum Theme: Int, CaseIterable {
-        case primary, orchard, dusk, supporter
+        case primary, orchard, dusk
 
         var name: String {
             switch self {
             case .primary: "Primary"
             case .orchard: "Orchard"
             case .dusk: "Dusk"
-            case .supporter: "Supporter"
             }
         }
 
@@ -43,9 +62,15 @@ final class Appearance {
             case (.dusk, .red): Color(red: 0.87, green: 0.33, blue: 0.46)
             case (.dusk, .blue): Color(red: 0.12, green: 0.55, blue: 0.58)
             case (.dusk, .yellow): Color(red: 0.82, green: 0.60, blue: 0.16)
-            case (.supporter, .red): Color(red: 0.78, green: 0.27, blue: 0.28)
-            case (.supporter, .blue): Color(red: 0.16, green: 0.43, blue: 0.58)
-            case (.supporter, .yellow): Color(red: 0.82, green: 0.55, blue: 0.18)
+            }
+        }
+
+        func color(for accent: GameAccent) -> Color {
+            switch accent {
+            case .first: color(for: .red)
+            case .second: color(for: .blue)
+            case .third: color(for: .yellow)
+            case .danger: errorColor
             }
         }
 
@@ -60,9 +85,15 @@ final class Appearance {
             case (.dusk, .red): Color(red: 0.96, green: 0.50, blue: 0.61)
             case (.dusk, .blue): Color(red: 0.29, green: 0.70, blue: 0.73)
             case (.dusk, .yellow): Color(red: 0.93, green: 0.74, blue: 0.34)
-            case (.supporter, .red): Color(red: 0.93, green: 0.43, blue: 0.40)
-            case (.supporter, .blue): Color(red: 0.36, green: 0.63, blue: 0.76)
-            case (.supporter, .yellow): Color(red: 0.96, green: 0.74, blue: 0.34)
+            }
+        }
+
+        func highlight(for accent: GameAccent) -> Color {
+            switch accent {
+            case .first: highlight(for: .red)
+            case .second: highlight(for: .blue)
+            case .third: highlight(for: .yellow)
+            case .danger: errorColor.opacity(0.72)
             }
         }
 
@@ -74,7 +105,6 @@ final class Appearance {
             case .primary: Color(red: 0.28, green: 0.64, blue: 0.40)
             case .orchard: Color(red: 0.30, green: 0.66, blue: 0.45)
             case .dusk: Color(red: 0.34, green: 0.70, blue: 0.64)
-            case .supporter: Color(red: 0.30, green: 0.62, blue: 0.55)
             }
         }
 
@@ -86,7 +116,6 @@ final class Appearance {
             case .primary: Color(red: 0.61, green: 0.34, blue: 0.78)
             case .orchard: Color(red: 0.82, green: 0.28, blue: 0.48)
             case .dusk: Color(red: 0.61, green: 0.38, blue: 0.80)
-            case .supporter: Color(red: 0.61, green: 0.34, blue: 0.60)
             }
         }
 
@@ -95,22 +124,22 @@ final class Appearance {
             case .primary: Color(red: 0.78, green: 0.36, blue: 0.34)
             case .orchard: Color(red: 0.78, green: 0.39, blue: 0.43)
             case .dusk: Color(red: 0.80, green: 0.40, blue: 0.49)
-            case .supporter: Color(red: 0.72, green: 0.31, blue: 0.32)
             }
         }
 
-        /// The supporter finish adds a warm paper-and-metal feel without
-        /// changing card identity or giving its owner a gameplay advantage.
+        /// Dusk is the supporter-only finish. It adds a warm paper-and-metal
+        /// feel without changing card identity or giving its owner a gameplay
+        /// advantage.
         var cardSurface: Color {
             switch self {
-            case .supporter: Color(red: 0.96, green: 0.94, blue: 0.88)
+            case .dusk: Color(red: 0.96, green: 0.94, blue: 0.88)
             default: Color(.secondarySystemGroupedBackground)
             }
         }
 
         var cardBorder: Color {
             switch self {
-            case .supporter: Color(red: 0.68, green: 0.47, blue: 0.16).opacity(0.55)
+            case .dusk: Color(red: 0.68, green: 0.47, blue: 0.16).opacity(0.55)
             default: Color.primary.opacity(0.12)
             }
         }
@@ -120,8 +149,27 @@ final class Appearance {
         didSet { UserDefaults.standard.set(fillStyle.rawValue, forKey: "appearance.fillStyle") }
     }
 
+    var warmBackgroundEnabled: Bool {
+        didSet { UserDefaults.standard.set(warmBackgroundEnabled, forKey: "appearance.warmBackground") }
+    }
+
+    var reduceMotion: AccessibilitySetting {
+        didSet { UserDefaults.standard.set(reduceMotion.rawValue, forKey: "appearance.reduceMotion") }
+    }
+
+    var highContrast: AccessibilitySetting {
+        didSet { UserDefaults.standard.set(highContrast.rawValue, forKey: "appearance.highContrast") }
+    }
+
+    var colorBlindAssist: AccessibilitySetting {
+        didSet { UserDefaults.standard.set(colorBlindAssist.rawValue, forKey: "appearance.colorBlindAssist") }
+    }
+
     var theme: Theme {
-        didSet { UserDefaults.standard.set(theme.rawValue, forKey: "appearance.theme") }
+        didSet {
+            UserDefaults.standard.set(theme.rawValue, forKey: "appearance.theme")
+            AppIconManager.update(for: theme)
+        }
     }
 
     /// Player identity follows the card palette so a theme changes both in
@@ -139,13 +187,18 @@ final class Appearance {
     var successColor: Color { theme.successColor }
     var errorColor: Color { theme.errorColor }
 
-    /// The supporter finish is a small, global surface treatment so the
-    /// cosmetic feels coherent across the title, tutorial, and game boards.
+    /// Themes change the card palette, not the surrounding app surface. The
+    /// warm surface is a separate, explicitly chosen supporter cosmetic.
     var gameBackground: Color {
-        switch theme {
-        case .supporter: Color(red: 0.93, green: 0.91, blue: 0.85)
-        default: Color(.systemGroupedBackground)
-        }
+        warmBackgroundEnabled
+            ? Color(red: 0.93, green: 0.91, blue: 0.85)
+            : Color(.systemGroupedBackground)
+    }
+
+    /// All themes follow the device's appearance; none forces a background
+    /// color scheme when selected.
+    var preferredColorScheme: ColorScheme? {
+        nil
     }
 
     private init() {
@@ -153,6 +206,51 @@ final class Appearance {
         // player who picked shaded keeps it.
         let storedFill = UserDefaults.standard.object(forKey: "appearance.fillStyle") as? Int
         fillStyle = storedFill.flatMap(FillStyle.init(rawValue:)) ?? .pinstriped
-        theme = Theme(rawValue: UserDefaults.standard.integer(forKey: "appearance.theme")) ?? .primary
+        warmBackgroundEnabled = UserDefaults.standard.bool(forKey: "appearance.warmBackground")
+        reduceMotion = AccessibilitySetting(
+            rawValue: UserDefaults.standard.integer(forKey: "appearance.reduceMotion")
+        ) ?? .automatic
+        highContrast = AccessibilitySetting(
+            rawValue: UserDefaults.standard.integer(forKey: "appearance.highContrast")
+        ) ?? .automatic
+        colorBlindAssist = AccessibilitySetting(
+            rawValue: UserDefaults.standard.integer(forKey: "appearance.colorBlindAssist")
+        ) ?? .automatic
+        // Raw value 3 was the previous Supporter theme. Carry that choice
+        // forward as Dusk when upgrading to the supporter-only Dusk finish.
+        theme = switch UserDefaults.standard.integer(forKey: "appearance.theme") {
+        case 1: .orchard
+        case 2, 3: .dusk
+        default: .primary
+        }
+    }
+}
+
+private struct ESTReduceMotionKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private struct ESTHighContrastKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private struct ESTColorBlindAssistKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var estReduceMotion: Bool {
+        get { self[ESTReduceMotionKey.self] }
+        set { self[ESTReduceMotionKey.self] = newValue }
+    }
+
+    var estHighContrast: Bool {
+        get { self[ESTHighContrastKey.self] }
+        set { self[ESTHighContrastKey.self] = newValue }
+    }
+
+    var estColorBlindAssist: Bool {
+        get { self[ESTColorBlindAssistKey.self] }
+        set { self[ESTColorBlindAssistKey.self] = newValue }
     }
 }

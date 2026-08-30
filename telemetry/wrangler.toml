@@ -8,5 +8,6 @@ crons = ["17 3 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "est-telemetry"
-# Set this after creating the D1 database.
+# Set this after creating the D1 database. Keep the real id out of the public
+# repository if this Worker is deployed under a private Cloudflare account.
 database_id = "REPLACE_WITH_D1_DATABASE_ID"

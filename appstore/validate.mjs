@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const SOURCE = join(ROOT, "appstore.md");
 const SCREENSHOTS = join(ROOT, "screenshots", "en-US");
+const validateScreenshots = !process.argv.includes("--metadata-only");
 const text = (await import("node:fs")).readFileSync(SOURCE, "utf8");
 const limits = {
   name: 30,
@@ -46,19 +47,23 @@ function pngInfo(file) {
   };
 }
 
-const shots = existsSync(SCREENSHOTS)
+const shots = validateScreenshots && existsSync(SCREENSHOTS)
   ? readdirSync(SCREENSHOTS).filter((file) => file.endsWith(".png")).sort()
   : [];
-if (shots.length < 1 || shots.length > 10) issues.push(`screenshots: ${shots.length} (expected 1 to 10)`);
-for (const shot of shots) {
-  const info = pngInfo(join(SCREENSHOTS, shot));
-  if (!info) { issues.push(`${shot}: not a PNG`); continue; }
-  if (info.width !== 1320 || info.height !== 2868) {
-    issues.push(`${shot}: expected 1320×2868, got ${info.width}×${info.height}`);
+if (validateScreenshots) {
+  if (shots.length < 1 || shots.length > 10) issues.push(`screenshots: ${shots.length} (expected 1 to 10)`);
+  for (const shot of shots) {
+    const info = pngInfo(join(SCREENSHOTS, shot));
+    if (!info) { issues.push(`${shot}: not a PNG`); continue; }
+    if (info.width !== 1320 || info.height !== 2868) {
+      issues.push(`${shot}: expected 1320×2868, got ${info.width}×${info.height}`);
+    }
+    if ([4, 6].includes(info.colorType)) issues.push(`${shot}: alpha channel present`);
   }
-  if ([4, 6].includes(info.colorType)) issues.push(`${shot}: alpha channel present`);
 }
 
 for (const issue of issues) console.log(`✗ ${issue}`);
 if (issues.length) process.exit(1);
-console.log(`✓ metadata limits passed; ${shots.length} iPhone 6.9-inch screenshot(s) are RGB at 1320×2868`);
+console.log(validateScreenshots
+  ? `✓ metadata limits passed; ${shots.length} iPhone 6.9-inch screenshot(s) are RGB at 1320×2868`
+  : "✓ metadata limits passed; screenshot validation skipped");

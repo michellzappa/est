@@ -44,8 +44,6 @@ final class NetworkPartySession {
     private(set) var doneCount = 0
     private(set) var doneTop: Card?
     private(set) var lastCollectorID: String? = nil
-    private(set) var activePlayerID: String?
-    private(set) var claimDeadline: Date?
     private(set) var isFinished = false
     private(set) var someoneLeft = false
 
@@ -54,7 +52,7 @@ final class NetworkPartySession {
     private var roster: [(id: String, name: String)] = []
     private var scores: [String: Int] = [:]
     private var collectedCards: [String: [Card]] = [:]
-    private var locks: [String: Date] = [:]
+    private var claimRace = ClaimRace<String>()
     private var expiryTask: Task<Void, Never>?
     private let remoteHost: GKPlayer?
 
@@ -94,15 +92,17 @@ final class NetworkPartySession {
         players.first { $0.id == localID }
     }
 
+    var activePlayerID: String? { claimRace.activePlayerID }
+    var claimDeadline: Date? { claimRace.claimDeadline }
+
     var winners: [PlayerDisplay] {
         let top = players.map(\.score).max() ?? 0
         return players.filter { $0.score == top }
     }
 
     func canBuzzLocally(at now: Date = .now) -> Bool {
-        guard !isFinished, activePlayerID == nil else { return false }
-        guard let localPlayer else { return true }
-        return !localPlayer.isLocked(at: now)
+        guard !isFinished else { return false }
+        return claimRace.canClaim(localID, at: now)
     }
 
     func buzzLocal() {
@@ -131,13 +131,14 @@ final class NetworkPartySession {
     // MARK: - Host authority
 
     private func handleBuzz(from playerID: String) {
-        guard isHost, !engine.isFinished, activePlayerID == nil else { return }
-        if let lock = locks[playerID], lock > .now { return }
-        activePlayerID = playerID
-        claimDeadline = Date.now.addingTimeInterval(PartySession.claimWindow)
+        guard isHost,
+              !engine.isFinished,
+              roster.contains(where: { $0.id == playerID }),
+              claimRace.claim(playerID) != nil
+        else { return }
         expiryTask?.cancel()
         expiryTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(PartySession.claimWindow))
+            try? await Task.sleep(for: .seconds(ClaimRace<String>.Configuration.standard.claimWindow))
             guard !Task.isCancelled, let self else { return }
             await MainActor.run { self.expireClaim() }
         }
@@ -155,33 +156,32 @@ final class NetworkPartySession {
             lastCollectorID = claimingPlayerID
             scores[playerID, default: 0] += 1
             collectedCards[playerID, default: []].append(contentsOf: cards)
-            endClaim()
+            endClaim(heldBy: playerID)
         case .mismatched:
             penalize(playerID)
-            endClaim()
+            endClaim(heldBy: playerID)
         }
         publishAndBroadcast()
     }
 
     private func expireClaim() {
-        guard isHost, let activePlayerID else { return }
+        guard isHost, let activePlayerID = claimRace.expire() else { return }
         engine.clearSelection()
         penalize(activePlayerID)
-        endClaim()
+        expiryTask = nil
         publishAndBroadcast()
     }
 
     private func penalize(_ playerID: String) {
         scores[playerID] = max(0, (scores[playerID] ?? 0) - 1)
-        locks[playerID] = Date.now.addingTimeInterval(PartySession.lockoutDuration)
+        _ = claimRace.penalize(playerID)
         penaltyToken += 1
     }
 
-    private func endClaim() {
+    private func endClaim(heldBy playerID: String) {
         expiryTask?.cancel()
         expiryTask = nil
-        activePlayerID = nil
-        claimDeadline = nil
+        _ = claimRace.releaseClaim(heldBy: playerID)
     }
 
     /// Host: mirror the engine into the display fields, then broadcast.
@@ -199,14 +199,14 @@ final class NetworkPartySession {
         doneTop = engine.done.last
         isFinished = engine.isFinished
         players = roster.enumerated().map { index, entry in
-            PlayerDisplay(
+            return PlayerDisplay(
                 id: entry.id,
                 name: entry.name,
                 color: PartySession.palette[index % PartySession.palette.count].1,
                 score: scores[entry.id] ?? 0,
                 cardCount: collectedCards[entry.id]?.count ?? 0,
                 topCard: collectedCards[entry.id]?.last,
-                lockedUntil: locks[entry.id]
+                lockedUntil: claimRace.lockDeadline(for: entry.id)
             )
         }
 
@@ -220,7 +220,7 @@ final class NetworkPartySession {
                     score: scores[entry.id] ?? 0,
                     cardCount: collectedCards[entry.id]?.count ?? 0,
                     topCardID: collectedCards[entry.id]?.last?.id,
-                    lockRemaining: locks[entry.id].flatMap {
+                    lockRemaining: claimRace.lockDeadline(for: entry.id).flatMap {
                         $0 > now ? $0.timeIntervalSince(now) : nil
                     }
                 )
@@ -277,15 +277,20 @@ final class NetworkPartySession {
     /// local clock.
     private func apply(_ snapshot: NetSnapshot) {
         let now = Date.now
+        var lockDeadlines: [String: Date] = [:]
         players = snapshot.players.map { state in
-            PlayerDisplay(
+            let lockDeadline = state.lockRemaining.map { now.addingTimeInterval($0) }
+            if let lockDeadline {
+                lockDeadlines[state.id] = lockDeadline
+            }
+            return PlayerDisplay(
                 id: state.id,
                 name: state.name,
                 color: PartySession.palette[state.colorIndex].1,
                 score: state.score,
                 cardCount: state.cardCount,
                 topCard: state.topCardID.map { Card(id: $0) },
-                lockedUntil: state.lockRemaining.map { now.addingTimeInterval($0) }
+                lockedUntil: lockDeadline
             )
         }
         table = snapshot.tableIDs.map { Card(id: $0) }
@@ -301,8 +306,11 @@ final class NetworkPartySession {
         doneCount = snapshot.doneCount
         doneTop = snapshot.doneTopID.map { Card(id: $0) }
         lastCollectorID = snapshot.lastCollectorID
-        activePlayerID = snapshot.activePlayerID
-        claimDeadline = snapshot.claimRemaining.map { now.addingTimeInterval($0) }
+        claimRace.adoptAuthoritativeState(
+            activePlayerID: snapshot.activePlayerID,
+            claimDeadline: snapshot.claimRemaining.map { now.addingTimeInterval($0) },
+            lockDeadlines: lockDeadlines
+        )
         isFinished = snapshot.isFinished
     }
 

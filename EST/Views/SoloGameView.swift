@@ -14,6 +14,7 @@ struct SoloGameView: View {
     @State private var lastMatchElapsed: TimeInterval = 0
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+    @AppStorage("showSoloTimer") private var showSoloTimer = true
     var onExit: () -> Void
 
     private var bestTime: Double {
@@ -21,7 +22,7 @@ struct SoloGameView: View {
     }
 
     private var leaderboardID: String {
-        GameCenterManager.leaderboardID(for: variant)
+        ESTLeaderboard.leaderboardID(for: variant)
     }
 
     /// Marketing captures need to communicate the core interaction at a
@@ -198,12 +199,13 @@ struct SoloGameView: View {
                 }
             }
             // A hinted run keeps its local best but stays off the leaderboard.
-            if !hintUsed {
-                GameCenterManager.shared.submitSoloTime(
-                    time,
-                    variant: variant,
-                    wasPaused: engine.wasPaused
-                )
+            if !hintUsed,
+               let score = ESTLeaderboard.score(
+                   for: time,
+                   variant: variant,
+                   wasPaused: engine.wasPaused
+               ) {
+                GameCenterManager.shared.submit(score)
             }
         }
     }
@@ -212,22 +214,20 @@ struct SoloGameView: View {
         ZStack {
             // The timer sits in a ZStack so it is centered on screen, not
             // between the unequal left and right button groups.
-            TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-                Text(TimeFormat.clock(engine.elapsed()))
-                    .font(.system(.title, design: .rounded, weight: .bold))
-                    .monospacedDigit()
+            if showSoloTimer {
+                TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                    Text(TimeFormat.clock(engine.elapsed()))
+                        .font(.system(.title, design: .rounded, weight: .bold))
+                        .monospacedDigit()
+                }
             }
             HStack {
-                Button {
+                GameExitButton {
                     if engine.isFinished {
                         onExit()
                     } else {
                         showExitConfirm = true
                     }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 if variant == .full {
@@ -293,7 +293,7 @@ struct SoloGameOverView: View {
     var totalCards = 81
     var hintUsed = false
     var runWasPaused = false
-    var leaderboardID = GameCenterManager.soloLeaderboardID
+    var leaderboardID = ESTLeaderboard.soloCompletionTimeID
     let onPlayAgain: () -> Void
     let onExit: () -> Void
 
@@ -351,13 +351,13 @@ struct SoloGameOverView: View {
 
             VStack(spacing: 10) {
                 Button("Play again", action: onPlayAgain)
-                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                    .buttonStyle(.game(.primary, tint: .second, size: .large))
 
                 if GameCenterManager.shared.isAuthenticated {
                     Button("Leaderboard") {
                         GameCenterManager.shared.showLeaderboard(id: leaderboardID)
                     }
-                    .buttonStyle(.game(.secondary, tint: .yellow))
+                    .buttonStyle(.game(.secondary, tint: .third))
                 }
 
                 Button("Menu", action: onExit)

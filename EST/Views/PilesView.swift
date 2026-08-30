@@ -30,6 +30,11 @@ struct PileFramesKey: PreferenceKey {
     }
 }
 
+enum PileFrameTarget: Equatable {
+    case draw
+    case done
+}
+
 /// Bottom bar: the remaining deck on the left, the done pile on the right.
 /// Both drawn as physical stacks, with counts.
 struct PilesView: View {
@@ -66,15 +71,8 @@ struct PilesView: View {
             PileStack(
                 label: "deck",
                 count: deckCount,
-                topFace: nil
-            )
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(
-                        key: PileFramesKey.self,
-                        value: PileFrames(draw: geo.frame(in: .named("game")), done: nil)
-                    )
-                }
+                topFace: nil,
+                frameTarget: .draw
             )
             DeckProgressBar(
                 deckCount: deckCount,
@@ -86,15 +84,8 @@ struct PilesView: View {
             PileStack(
                 label: "played",
                 count: doneCount,
-                topFace: doneTop
-            )
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(
-                        key: PileFramesKey.self,
-                        value: PileFrames(draw: nil, done: geo.frame(in: .named("game")))
-                    )
-                }
+                topFace: doneTop,
+                frameTarget: .done
             )
         }
     }
@@ -203,6 +194,7 @@ struct PileStack: View {
     let count: Int
     let topFace: Card?
     var showsMetadata = true
+    var frameTarget: PileFrameTarget? = nil
 
     private var side: CGFloat { Self.cardSide }
 
@@ -228,6 +220,18 @@ struct PileStack: View {
             }
             .frame(width: side + 8, height: side + 8)
             .animation(.spring(duration: 0.35), value: count)
+            .background {
+                GeometryReader { geo in
+                    let frame = geo.frame(in: .named("game"))
+                    Color.clear.preference(
+                        key: PileFramesKey.self,
+                        value: PileFrames(
+                            draw: frameTarget == .draw ? frame : nil,
+                            done: frameTarget == .done ? frame : nil
+                        )
+                    )
+                }
+            }
 
             if showsMetadata {
                 Text("\(count)")

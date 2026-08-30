@@ -7,9 +7,9 @@ import SwiftUI
 ///
 /// 1. **One primary per screen.** The filled, glowing button is the action the
 ///    screen exists for. Everything else is secondary or quiet.
-/// 2. **Tints come from the card palette**, never from the system accent. Blue
-///    is solo and go, yellow is the alternate or bonus path, red is a duel or
-///    a way out. A theme change restyles the buttons with the cards.
+/// 2. **Tints come from the game palette**, never from the system accent. The
+///    first three accents follow EST's card palette, while a future game can
+///    map the same tokens to its own visual identity.
 /// 3. **A row is one size.** Buttons stretch to equal widths, so no row ever
 ///    tapers or wraps its label.
 ///
@@ -54,7 +54,7 @@ struct GameButtonStyle: ButtonStyle {
     }
 
     var role: Role = .secondary
-    var tint: Card.Tint = .blue
+    var tint: GameAccent = .second
     var size: Size = .medium
 
     func makeBody(configuration: Configuration) -> some View {
@@ -66,7 +66,7 @@ struct GameButtonStyle: ButtonStyle {
     private struct Surface: View {
         let configuration: Configuration
         let role: Role
-        let tint: Card.Tint
+        let tint: GameAccent
         let size: Size
 
         @Environment(\.isEnabled) private var isEnabled
@@ -153,22 +153,38 @@ struct GameButtonStyle: ButtonStyle {
 extension ButtonStyle where Self == GameButtonStyle {
     static func game(
         _ role: GameButtonStyle.Role = .secondary,
-        tint: Card.Tint = .blue,
+        tint: GameAccent = .second,
         size: GameButtonStyle.Size = .medium
     ) -> GameButtonStyle {
         GameButtonStyle(role: role, tint: tint, size: size)
     }
 }
 
+/// The one persistent escape hatch inside a game. Keeping this as a shared
+/// control makes the action and its hit target identical across game modes;
+/// each screen owns the confirmation behavior around it.
+struct GameExitButton: View {
+    let action: () -> Void
+    var accessibilityLabel = "End game"
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark.circle.fill")
+        }
+        .buttonStyle(.game(.quiet, tint: .first, size: .icon))
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
 #Preview {
     VStack(spacing: 12) {
         Button("Solo 81") {}
-            .buttonStyle(.game(.primary, tint: .blue, size: .large))
+            .buttonStyle(.game(.primary, tint: .second, size: .large))
         HStack(spacing: 12) {
             Button("Quick 27") {}
-                .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
+                .buttonStyle(.game(.secondary, tint: .third, size: .large))
             Button("Duel") {}
-                .buttonStyle(.game(.secondary, tint: .red, size: .large))
+                .buttonStyle(.game(.secondary, tint: .first, size: .large))
         }
         HStack(spacing: 12) {
             Button("Rules") {}
