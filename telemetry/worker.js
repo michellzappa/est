@@ -285,10 +285,19 @@ export default {
 
     const receivedAt = new Date().toISOString();
     await env.DB.prepare(
-      `INSERT OR IGNORE INTO telemetry_batches
+      `INSERT INTO telemetry_batches
        (batch_id, received_at, period, dedupe_key, cohort, app_version,
         app_build, ios_major, device_family, payload)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(period, dedupe_key) DO UPDATE SET
+         batch_id = excluded.batch_id,
+         received_at = excluded.received_at,
+         cohort = excluded.cohort,
+         app_version = excluded.app_version,
+         app_build = excluded.app_build,
+         ios_major = excluded.ios_major,
+         device_family = excluded.device_family,
+         payload = excluded.payload`
     ).bind(
       safe.batch_id,
       receivedAt,

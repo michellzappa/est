@@ -7,7 +7,8 @@ turned off at any time.
 
 ## What is sent
 
-At most one aggregate batch per ISO week:
+One aggregate record per ISO week, refreshed after a completed game when
+needed:
 
 - app version, app build, iOS major version, and coarse device family;
 - counts for launches, games started and completed, sets found, mode starts

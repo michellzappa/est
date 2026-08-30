@@ -229,16 +229,24 @@ private struct TelemetryPreviewView: View {
 private struct CommunityPulseView: View {
     @State private var stats: ESTCommunityStats?
     @State private var isLoading = false
+    @State private var reloadID = 0
 
     var body: some View {
         Group {
             if let stats {
                 statsContent(stats)
             } else if isLoading {
-                HStack {
-                    ProgressView()
-                    Text("Loading community activity…")
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        ProgressView()
+                        Text("Loading community activity…")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button {
+                        reloadID += 1
+                    } label: {
+                        Label("Reload", systemImage: "arrow.clockwise")
+                    }
                 }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
@@ -247,13 +255,13 @@ private struct CommunityPulseView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Button("Try again") {
-                        Task { await reload() }
+                        reloadID += 1
                     }
                 }
             }
         }
-        .task {
-            await reload()
+        .task(id: reloadID) {
+            await reload(id: reloadID)
         }
     }
 
@@ -306,7 +314,7 @@ private struct CommunityPulseView: View {
                 recentWeeks(stats.weeklyActive, minimumGroupSize: stats.privacy.minimumGroupSize)
 
                 Button {
-                    Task { await reload() }
+                    reloadID += 1
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -319,7 +327,7 @@ private struct CommunityPulseView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Button {
-                    Task { await reload() }
+                    reloadID += 1
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -386,13 +394,15 @@ private struct CommunityPulseView: View {
     }
 
     @MainActor
-    private func reload() async {
-        guard !isLoading else { return }
+    private func reload(id: Int) async {
         isLoading = true
         defer {
-            isLoading = false
+            if reloadID == id {
+                isLoading = false
+            }
         }
         guard let result = try? await ESTCommunityStatsClient.fetch() else { return }
+        guard reloadID == id else { return }
         stats = result
     }
 }

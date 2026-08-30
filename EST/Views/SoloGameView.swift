@@ -183,6 +183,9 @@ struct SoloGameView: View {
                 ESTTelemetry.record(variant == .quick
                     ? .quickSoloCompleted
                     : .fullSoloCompleted)
+                Task {
+                    await TelemetryCoordinator.shared.flushCurrentPeriod()
+                }
             }
             guard finished, !submittedScore else { return }
             submittedScore = true

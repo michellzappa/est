@@ -505,7 +505,8 @@ extension Notification.Name {
     static let estTelemetryChanged = Notification.Name("estTelemetryChanged")
 }
 
-/// Builds and delivers at most one aggregate batch per ISO week.
+/// Builds and delivers one aggregate record per ISO week. The record can be
+/// refreshed after a completed game without becoming an event stream.
 @MainActor
 final class TelemetryCoordinator {
     static let shared = TelemetryCoordinator()
@@ -529,6 +530,33 @@ final class TelemetryCoordinator {
 
     func preview() async -> ESTTelemetryBatch {
         ESTTelemetry.makeBatch()
+    }
+
+    /// Refreshes the current weekly aggregate after meaningful activity. The
+    /// Worker upserts by the week-scoped dedupe key, so this never creates a
+    /// second install identity or a per-game row.
+    func flushCurrentPeriod() async {
+        guard ESTTelemetry.enabled else { return }
+
+        if let pending = ESTTelemetry.loadPendingBatch() {
+            guard await send(pending) else { return }
+            ESTTelemetry.deletePendingBatch()
+            UserDefaults.standard.set(
+                pending.period,
+                forKey: ESTTelemetry.lastSubmittedPeriodKey
+            )
+        }
+
+        let period = ESTTelemetry.currentPeriod()
+        let batch = ESTTelemetry.makeBatch(period: period)
+        guard await send(batch) else {
+            ESTTelemetry.savePendingBatch(batch)
+            return
+        }
+        UserDefaults.standard.set(
+            period,
+            forKey: ESTTelemetry.lastSubmittedPeriodKey
+        )
     }
 
     private func run() async {

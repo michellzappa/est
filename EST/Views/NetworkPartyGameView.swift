@@ -113,6 +113,9 @@ struct NetworkPartyGameView: View {
             if finished {
                 ESTTelemetry.record(.gamesCompleted)
                 ESTTelemetry.record(.networkDuelCompleted)
+                Task {
+                    await TelemetryCoordinator.shared.flushCurrentPeriod()
+                }
             }
         }
         .onDisappear {

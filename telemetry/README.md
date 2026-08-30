@@ -2,9 +2,9 @@
 
 This is the small first-party intake for EST's optional anonymous diagnostics.
 It has no accounts, client credentials, public user data, or stable install
-identifiers. The Worker accepts one aggregate batch per app install per ISO
-week; the week-scoped dedupe key prevents retries from inflating the same
-period.
+identifiers. The Worker stores one aggregate row per app install per ISO
+week; the week-scoped dedupe key makes retries and activity refreshes update
+that row instead of inflating the period.
 
 ## Deploy
 
