@@ -106,6 +106,18 @@ with the legacy millisecond formatter. `asc` 4.x supports that formatter;
 `review submit --build` to `--build-id` and removed `--public-provider-id`
 from `web apps create`.
 
+## First release only: no release notes
+
+Apple rejects `whatsNew` on an app that has never been released, with
+"Attribute 'whatsNew' cannot be edited at this time". Version 1.0.0 has nothing
+to be new against. Keep the copy in `appstore.md` for the next version and set
+`EST_INITIAL_RELEASE=1` for every command that regenerates metadata until 1.0.0
+ships:
+
+```bash
+EST_INITIAL_RELEASE=1 ./scripts/appstore.sh upload-screenshots <APP_ID>
+```
+
 ## Optional support purchase
 
 Create this product manually in App Store Connect before submitting:

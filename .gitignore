@@ -9,3 +9,6 @@ build/
 .env
 .env.*
 !.env.example
+
+# asc CLI build artifacts and reports (26MB+ of ipa/xcarchive per publish)
+.asc/

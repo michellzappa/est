@@ -53,6 +53,16 @@ for (const [source, target] of Object.entries(FIELD_MAP)) {
 version.description = parsed.fields.description;
 version.keywords = parsed.fields.keywords;
 
+// Apple rejects whatsNew on an app that has never been released: "Attribute
+// 'whatsNew' cannot be edited at this time". A first version has nothing to be
+// new against. Keep the copy in appstore.md for the next release and omit it
+// here until 1.0.0 ships.
+const initialRelease = process.argv.includes("--initial-release")
+  || process.env.EST_INITIAL_RELEASE === "1";
+if (initialRelease) {
+  delete version.whatsNew;
+}
+
 mkdirSync(join(OUTPUT, "app-info"), { recursive: true });
 mkdirSync(join(OUTPUT, "version", "1.0.0"), { recursive: true });
 writeFileSync(join(OUTPUT, "app-info", `${LOCALE}.json`), `${JSON.stringify(appInfo, null, 2)}\n`);

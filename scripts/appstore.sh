@@ -267,14 +267,21 @@ review_details() {
   local last_name="${EST_REVIEW_LAST_NAME:-Zappa}"
   local contact_email="${EST_REVIEW_EMAIL:-}"
   local contact_phone="${EST_REVIEW_PHONE:-}"
+  # macOS ships bash 3.2, where "${array[@]}" on an empty array trips set -u.
+  # The ${a[@]+"${a[@]}"} form expands to nothing instead of failing, which
+  # matters because the phone number is optional.
   local -a contact_args=()
   [ -n "$contact_email" ] || {
     echo "Set EST_REVIEW_EMAIL to the App Review contact email before running review-details"
     exit 1
   }
-  if [ -n "$contact_phone" ]; then
-    contact_args+=(--contact-phone "$contact_phone")
-  fi
+  # Apple requires contactPhone: "You must provide a value for the attribute
+  # 'contactPhone' with this request". Fail here rather than at the API.
+  [ -n "$contact_phone" ] || {
+    echo "Set EST_REVIEW_PHONE to the App Review contact phone before running review-details"
+    exit 1
+  }
+  contact_args+=(--contact-phone "$contact_phone")
 
   load_asc_credentials
   cd "$ROOT"
@@ -293,18 +300,22 @@ review_details() {
   if [ -n "$details_id" ]; then
     asc review details-update \
       --id "$details_id" \
+      --demo-account-required false \
       --contact-first-name "$first_name" \
       --contact-last-name "$last_name" \
       --contact-email "$contact_email" \
-      "${contact_args[@]}" \
+      ${contact_args[@]+"${contact_args[@]}"} \
       --notes "$notes"
   else
+    # EST needs no account. Without this, the created record comes back with
+    # demoAccountRequired=true and App Review expects credentials.
     asc review details-create \
       --version-id "$version_id" \
+      --demo-account-required false \
       --contact-first-name "$first_name" \
       --contact-last-name "$last_name" \
       --contact-email "$contact_email" \
-      "${contact_args[@]}" \
+      ${contact_args[@]+"${contact_args[@]}"} \
       --notes "$notes"
   fi
 }
