@@ -23,17 +23,28 @@ struct ESTFeedbackPayload: Codable, Equatable, Sendable {
     let schema: Int
     let product: String
     let message: String
+    /// Optional. The player supplies this only to receive a reply, and it is
+    /// the one field in EST that identifies a person, so it is never stored
+    /// with diagnostics and never sent unless the player types it.
+    let replyEmail: String?
     let app: App
+
+    enum CodingKeys: String, CodingKey {
+        case schema, product, message, app
+        case replyEmail = "reply_email"
+    }
 
     init(
         schema: Int = 1,
         product: String = "est",
         message: String,
+        replyEmail: String? = nil,
         app: App
     ) {
         self.schema = schema
         self.product = product
         self.message = message
+        self.replyEmail = replyEmail
         self.app = app
     }
 }
@@ -41,6 +52,7 @@ struct ESTFeedbackPayload: Codable, Equatable, Sendable {
 enum ESTFeedbackService {
     enum FeedbackError: LocalizedError {
         case invalidMessage
+        case invalidEmail
         case unavailable
         case deliveryFailed
 
@@ -48,6 +60,8 @@ enum ESTFeedbackService {
             switch self {
             case .invalidMessage:
                 "Write a message before sending feedback."
+            case .invalidEmail:
+                "Check the email address, or leave it empty to send without a reply."
             case .unavailable, .deliveryFailed:
                 "Feedback could not be sent right now. Please try again."
             }
@@ -58,6 +72,8 @@ enum ESTFeedbackService {
     static let endpointInfoKey = "ESTFeedbackEndpoint"
     static let defaultEndpoint = "https://est-telemetry.envisioning.workers.dev/v1/feedback"
     static let maxMessageLength = 5_000
+    /// RFC 5321 caps an address at 254 characters.
+    static let maxEmailLength = 254
     private static let requestBodyLimit = 12_000
 
     private static let session: URLSession = {
@@ -94,14 +110,32 @@ enum ESTFeedbackService {
         )
     }
 
+    /// Trim and validate a reply address. Returns nil when the field is empty,
+    /// which is the normal case: the address is optional. Throws when the
+    /// player typed something that is not an address, so the mistake surfaces
+    /// here instead of silently losing the only way to answer them.
+    static func normalizedEmail(_ email: String) throws -> String? {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard trimmed.count <= maxEmailLength,
+              trimmed.range(
+                of: #"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$"#,
+                options: .regularExpression
+              ) != nil
+        else { throw FeedbackError.invalidEmail }
+        return trimmed
+    }
+
     @MainActor
-    static func send(message: String) async throws {
+    static func send(message: String, replyEmail: String = "") async throws {
         let message = normalizedMessage(message)
         guard !message.isEmpty else { throw FeedbackError.invalidMessage }
+        let replyEmail = try normalizedEmail(replyEmail)
         guard let endpoint else { throw FeedbackError.unavailable }
 
         let payload = ESTFeedbackPayload(
             message: message,
+            replyEmail: replyEmail,
             app: .init(
                 version: Bundle.main.object(
                     forInfoDictionaryKey: "CFBundleShortVersionString"

@@ -3,6 +3,7 @@ import SwiftUI
 struct FeedbackView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var message = ""
+    @State private var replyEmail = ""
     @State private var phase: Phase = .idle
 
     private enum Phase {
@@ -47,7 +48,20 @@ struct FeedbackView: View {
                 } header: {
                     Text("Tell us what you think")
                 } footer: {
-                    Text("This is sent to mz@centaur-labs.io via the EST feedback service. Include contact details only if you want a reply, and do not include sensitive information.")
+                    Text("This is sent to mz@centaur-labs.io via the EST feedback service. Do not include sensitive information.")
+                }
+
+                Section {
+                    TextField("you@example.com", text: $replyEmail)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .disabled(isSending || isSent)
+                } header: {
+                    Text("Email (optional)")
+                } footer: {
+                    Text("Add your email only if you want a reply. Leave it empty and the message stays anonymous.")
                 }
 
                 if case .failed(let message) = phase {
@@ -110,10 +124,20 @@ struct FeedbackView: View {
             return
         }
 
+        // Validate the address before showing the sending state, so a typo
+        // reads as a correction rather than a delivery failure.
+        do {
+            _ = try ESTFeedbackService.normalizedEmail(replyEmail)
+        } catch {
+            phase = .failed(error.localizedDescription)
+            return
+        }
+
         phase = .sending
         Task {
             do {
-                try await ESTFeedbackService.send(message: message)
+                try await ESTFeedbackService.send(
+                    message: message, replyEmail: replyEmail)
                 phase = .sent
             } catch {
                 phase = .failed(error.localizedDescription)

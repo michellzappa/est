@@ -21,6 +21,8 @@ const RETENTION_DAYS = 180;
 const FEEDBACK_RECIPIENT = "mz@centaur-labs.io";
 const MAX_FEEDBACK_LENGTH = 5000;
 const MAX_FEEDBACK_BODY_BYTES = 12000;
+// RFC 5321 caps an address at 254 characters.
+const MAX_FEEDBACK_EMAIL_LENGTH = 254;
 // Keep this at one while the app is being tested so a single install can show
 // its aggregate. Raise it before a public release if cohort privacy is needed.
 const COMMUNITY_MINIMUM_GROUP_SIZE = 1;
@@ -54,6 +56,16 @@ function feedbackMessage(value) {
     : null;
 }
 
+// Validate the optional reply address at the boundary. An address that fails
+// this check is dropped rather than rejecting the whole message: the player
+// still deserves to have their feedback delivered.
+function feedbackReplyEmail(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > MAX_FEEDBACK_EMAIL_LENGTH) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed) ? trimmed : null;
+}
+
 function sanitizeFeedback(payload) {
   if (!payload || typeof payload !== "object") return null;
   if (payload.schema !== 1 || payload.product !== "est") return null;
@@ -75,6 +87,7 @@ function sanitizeFeedback(payload) {
 
   const safe = {
     message,
+    reply_email: feedbackReplyEmail(payload.reply_email),
     app: {
       version,
       build,
@@ -93,13 +106,14 @@ async function sendFeedbackEmail(env, feedback) {
     return false;
   }
 
-  const { app, message } = feedback;
+  const { app, message, reply_email: replyEmail } = feedback;
   const text = [
     "New EST feedback",
     "",
     `Version: ${app.version} (build ${app.build})`,
     `iOS: ${app.ios_major}`,
     `Device: ${app.device_family}`,
+    `Reply to: ${replyEmail ?? "not provided"}`,
     "",
     "Message:",
     message,
@@ -115,6 +129,8 @@ async function sendFeedbackEmail(env, feedback) {
       body: JSON.stringify({
         from,
         to: [FEEDBACK_RECIPIENT],
+        // Replying in a mail client then reaches the player directly.
+        ...(replyEmail ? { reply_to: [replyEmail] } : {}),
         subject: `[EST feedback] ${app.version} (${app.build})`,
         text,
       }),

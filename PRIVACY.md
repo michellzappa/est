@@ -19,7 +19,10 @@ distributors can replace or omit the endpoint. See the
 If you use **Send feedback**, the text you submit is sent over the internet to
 the first-party EST feedback Worker, which forwards it to
 `mz@centaur-labs.io`. The message includes the app version, build, iOS major
-version, and coarse device family to help diagnose issues. Feedback does not
+version, and coarse device family to help diagnose issues. The email field is
+optional. If you fill it in, the address travels with the message and is used
+only as the reply address. Leave it empty and the message carries nothing that
+identifies you. Feedback does not
 require anonymous-diagnostics consent and is not stored in the Worker's D1
 database, but the email delivery provider and recipient may retain the message.
 Do not include sensitive information.

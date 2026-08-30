@@ -10,7 +10,7 @@ feature is available without payment. App Review can test the app without
 buying it. The purchase is available from Settings > Support EST and can be
 tested with the included StoreKit configuration.
 
-The app does not collect personal data. Anonymous diagnostics are enabled by
+The app collects no personal data unless a player chooses to give it. Send feedback has an optional email field, used only to reply. Anonymous diagnostics are enabled by
 default on new installs and can be disabled in Settings; in a configured
 release build, they send one coarse aggregate record per week with activity
 totals such as games
