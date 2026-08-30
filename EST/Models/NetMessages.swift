@@ -14,8 +14,8 @@ enum NetEvent: Codable {
     case select(Int)
 }
 
-/// Host -> everyone. Times cross the wire as remaining seconds, not dates —
-/// device clocks are not trusted to agree.
+/// Host -> everyone. Times cross the wire as remaining seconds, not dates,
+/// because device clocks are not trusted to agree.
 struct NetSnapshot: Codable {
     struct PlayerState: Codable {
         /// GKPlayer.gamePlayerID
@@ -24,6 +24,10 @@ struct NetSnapshot: Codable {
         /// Index into PartySession.palette, assigned by the host.
         let colorIndex: Int
         var score: Int
+        /// Physical cards won by this player; score remains separate because
+        /// penalties affect points but do not remove cards from a player's pile.
+        var cardCount: Int
+        var topCardID: Int?
         var lockRemaining: TimeInterval?
     }
 
@@ -35,6 +39,8 @@ struct NetSnapshot: Codable {
     var mismatchReasons: [String]
     var celebrationIDs: [Int]
     var matchToken: Int
+    var dealToken: Int
+    var penaltyToken: Int
     var deckCount: Int
     var doneCount: Int
     var doneTopID: Int?

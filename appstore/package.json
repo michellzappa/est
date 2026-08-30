@@ -1,0 +1,12 @@
+{
+  "name": "est-appstore",
+  "private": true,
+  "type": "module",
+  "description": "EST App Store metadata and product-page rendering tools.",
+  "scripts": {
+    "product-page": "node render-product-page.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

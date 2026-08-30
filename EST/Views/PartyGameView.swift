@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// Local multiplayer on one device. Even-numbered players sit on the bottom
-/// edge, odd-numbered on the top (their controls render upside down).
+/// Local multiplayer on one device. A two-player game keeps the compact
+/// top-and-bottom duel layout; the four-player iPad game places one seat on
+/// every edge of the table.
 struct PartyGameView: View {
     @State private var session: PartySession
     @State private var pileFrames = PileFrames()
     @State private var showExitConfirm = false
+    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     var onExit: () -> Void
 
     init(playerCount: Int, onExit: @escaping () -> Void) {
@@ -21,104 +23,276 @@ struct PartyGameView: View {
         session.players.filter { $0.id % 2 == 0 }
     }
 
+    private var usesFourPlayerLayout: Bool {
+        session.players.count == PartySession.maximumPlayerCount
+    }
+
     var body: some View {
-        VStack(spacing: 10) {
-            playerRow(topPlayers, flipped: true)
-
-            HStack {
-                Button {
-                    if session.engine.isFinished {
-                        onExit()
-                    } else {
-                        showExitConfirm = true
-                    }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                statusLabel
-                Spacer()
+        Group {
+            if usesFourPlayerLayout {
+                fourPlayerLayout
+            } else {
+                twoPlayerLayout
             }
-            .padding(.horizontal, 4)
-
-            BoardGridView(
-                engine: session.engine,
-                pileFrames: pileFrames,
-                isInteractive: session.activePlayerID != nil && !session.engine.isFinished
-            ) { card in
-                _ = session.select(card)
-            }
-            .overlay {
-                if let active = session.activePlayer {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(active.color, lineWidth: 3)
-                        .padding(-8)
-                        .allowsHitTesting(false)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                MismatchExplainer(
-                    reasons: session.engine.mismatchReasons,
-                    token: session.engine.mismatchToken
-                )
-                .padding(.bottom, 6)
-            }
-
-            PilesView(engine: session.engine)
-                .padding(.horizontal, 6)
-
-            playerRow(bottomPlayers, flipped: false)
         }
         .padding()
         .coordinateSpace(name: "game")
         .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
-        .background(Color(.systemGroupedBackground))
-        .confirmationDialog("End this game?", isPresented: $showExitConfirm, titleVisibility: .visible) {
-            Button("End Game", role: .destructive) { onExit() }
-            Button("Keep Playing", role: .cancel) {}
-        } message: {
-            Text("Scores are lost.")
+        .background(Appearance.shared.gameBackground)
+        .overlay(alignment: .topTrailing) {
+            exitButton.padding(4)
         }
-        .sensoryFeedback(.success, trigger: session.engine.matchToken)
-        .sensoryFeedback(.error, trigger: session.engine.mismatchToken)
-        .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: session.activePlayerID)
-        .sensoryFeedback(.success, trigger: session.engine.isFinished)
+        .confirmationDialog("End this game?", isPresented: $showExitConfirm, titleVisibility: .visible) {
+            Button("End game", role: .destructive) { onExit() }
+            Button("Keep playing", role: .cancel) {}
+        } message: {
+            Text("Your scores will be lost.")
+        }
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.engine.matchToken, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, oldValue.value != newValue.value else { return nil }
+            return .success
+        }
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.engine.mismatchToken, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, oldValue.value != newValue.value else { return nil }
+            return .error
+        }
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.activePlayerID, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, oldValue.value != newValue.value, newValue.value != nil else { return nil }
+            return .impact(weight: .heavy, intensity: 0.9)
+        }
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.engine.isFinished, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, !oldValue.value, newValue.value else { return nil }
+            return .success
+        }
+        .onChange(of: session.activePlayerID) { _, playerID in
+            if playerID != nil {
+                GameAudio.shared.play(.buzz)
+            }
+        }
+        .onChange(of: session.penaltyToken) { _, newToken in
+            if newToken > 0 {
+                GameAudio.shared.play(.penalty)
+            }
+        }
+        .onChange(of: session.engine.isFinished) { _, finished in
+            if finished {
+                GameAudio.shared.play(.completion)
+            }
+        }
         .overlay {
             if session.engine.isFinished {
                 PartyGameOverView(session: session, onExit: onExit)
             }
         }
+        .onAppear {
+            ESTTelemetry.record(.localDuelStarted)
+        }
+        .onChange(of: session.engine.isFinished) { _, finished in
+            if finished {
+                ESTTelemetry.record(.localDuelCompleted)
+            }
+        }
     }
 
-    private var statusLabel: some View {
-        Group {
-            if let active = session.activePlayer {
-                Text("\(active.name) — tap 3 cards!")
-                    .font(.headline)
-                    .foregroundStyle(active.color)
-            } else {
-                Text("see one? hit your button")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+    private var twoPlayerLayout: some View {
+        VStack(spacing: 10) {
+            playerRow(topPlayers, flipped: true)
+
+            gameBoard
+
+            playerRow(bottomPlayers, flipped: false)
+        }
+    }
+
+    /// Four seats fit around a shared-device table. Each seat gets a real
+    /// layout region before it is rotated, so the board remains centered in
+    /// both tall iPhone windows and iPad landscape.
+    private var fourPlayerLayout: some View {
+        GeometryReader { proxy in
+            let isCompactSquare = PartySession.isCompactFourPlayerWindow(in: proxy.size)
+            let seatButtonWidth = isCompactSquare
+                ? min(210, max(180, proxy.size.width * 0.28))
+                : min(260, max(220, proxy.size.width * 0.24))
+            let gridGap: CGFloat = 10
+            let rows = max(1, Int(ceil(Double(session.engine.table.count) / 3)))
+            let seatThickness = GameButtonStyle.Size.large.height
+            let edgeGap: CGFloat = 8
+
+            // Side controls are rotated, so their visible width is the
+            // button height. Reserve that actual footprint on each side of
+            // the table rather than reserving the unrotated button width.
+            let availableBoardWidth = max(
+                1,
+                proxy.size.width - (seatThickness + edgeGap) * 2
+            )
+            let availableBoardHeight = max(
+                1,
+                proxy.size.height
+                    - (seatThickness + edgeGap) * 2
+            )
+            let widthLimitedCardSide = max(
+                1,
+                (availableBoardWidth - gridGap * 2) / 3
+            )
+            let fittedCardSide = min(
+                widthLimitedCardSide,
+                max(1, (availableBoardHeight - CGFloat(rows - 1) * gridGap) / CGFloat(rows))
+            )
+            // Leave a generous visual moat between the table and all four
+            // player controls. The board still responds to available space,
+            // just at a deliberately more comfortable scale.
+            let cardSide = fittedCardSide * 0.8
+            let boardWidth = cardSide * 3 + gridGap * 2
+            let boardHeight = cardSide * CGFloat(rows) + gridGap * CGFloat(rows - 1)
+            let boardCenter = CGPoint(
+                x: proxy.size.width / 2,
+                y: proxy.size.height / 2
+            )
+
+            ZStack {
+                gameBoard
+                    .frame(width: boardWidth, height: boardHeight)
+                    .position(boardCenter)
+
+                playerSeat(
+                    playerIndex: 2,
+                    buttonWidth: seatButtonWidth,
+                    rotation: .degrees(180)
+                )
+                .position(x: proxy.size.width / 2, y: seatThickness / 2)
+
+                playerSeat(playerIndex: 0, buttonWidth: seatButtonWidth)
+                    .position(
+                        x: proxy.size.width / 2,
+                        y: proxy.size.height - seatThickness / 2
+                    )
+
+                playerSeat(
+                    playerIndex: 1,
+                    buttonWidth: seatButtonWidth,
+                    rotation: .degrees(90),
+                    isSideSeat: true
+                )
+                .position(x: seatThickness / 2, y: proxy.size.height / 2)
+
+                playerSeat(
+                    playerIndex: 3,
+                    buttonWidth: seatButtonWidth,
+                    rotation: .degrees(-90),
+                    isSideSeat: true
+                )
+                .position(
+                    x: proxy.size.width - seatThickness / 2,
+                    y: proxy.size.height / 2
+                )
             }
+        }
+    }
+
+    private var gameBoard: some View {
+        BoardGridView(
+            engine: session.engine,
+            pileFrames: pileFrames,
+            isInteractive: session.activePlayerID != nil && !session.engine.isFinished
+        ) { card in
+            _ = session.select(card)
+        }
+        .overlay {
+            if let active = session.activePlayer {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(active.color, lineWidth: 3)
+                    .padding(-8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            MismatchExplainer(
+                reasons: session.engine.mismatchReasons,
+                token: session.engine.mismatchToken
+            )
+            .padding(.bottom, 6)
+        }
+    }
+
+    private var exitButton: some View {
+        Button {
+            if session.engine.isFinished {
+                onExit()
+            } else {
+                showExitConfirm = true
+            }
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.secondary)
         }
     }
 
     private func playerRow(_ players: [PartySession.Player], flipped: Bool) -> some View {
         HStack(spacing: 12) {
             ForEach(players) { player in
-                BuzzButton(session: session, playerID: player.id)
+                HStack(spacing: 8) {
+                    playerName(player)
+                    BuzzButton(session: session, playerID: player.id)
+                        .frame(maxWidth: .infinity)
+                    PlayerDeckView(
+                        cardCount: player.cardCount,
+                        topCard: player.topCard
+                    )
+                }
+                .frame(maxWidth: .infinity)
                     .rotationEffect(flipped ? .degrees(180) : .zero)
             }
         }
-        .frame(height: players.isEmpty ? 0 : 76)
+    }
+
+    private func playerSeat(
+        playerIndex: Int,
+        buttonWidth: CGFloat,
+        rotation: Angle = .zero,
+        isSideSeat: Bool = false
+    ) -> some View {
+        let player = session.players[playerIndex]
+        let seatThickness = GameButtonStyle.Size.large.height
+        let seatLength = buttonWidth + seatThickness * 2 + 8 * 2
+        return HStack(spacing: 8) {
+            playerName(player)
+            BuzzButton(session: session, playerID: player.id)
+                .frame(width: buttonWidth)
+            PlayerDeckView(cardCount: player.cardCount, topCard: player.topCard)
+        }
+        .frame(width: seatLength, height: seatThickness)
+        .rotationEffect(rotation)
+        // Rotation is a drawing transform: it does not swap a view's layout
+        // dimensions. This outer frame matches the transformed footprint so
+        // a side seat occupies a narrow, tall edge region as intended.
+        .frame(
+            width: isSideSeat ? seatThickness : seatLength,
+            height: isSideSeat ? seatLength : seatThickness
+        )
+    }
+
+    private func playerName(_ player: PartySession.Player) -> some View {
+        Text(player.name)
+            .font(.headline.bold())
+            .foregroundStyle(player.color)
+            // Match the deck's footprint so the SET button stays precisely
+            // centered between its two pieces of player metadata.
+            .frame(width: GameButtonStyle.Size.large.height)
     }
 }
 
-/// A player's claim button: name, score, and — while they hold the claim —
-/// a draining countdown bar for the selection window.
+/// A player's claim button is deliberately just the SET action. While they
+/// hold the claim, it also shows a draining countdown bar for the selection
+/// window; identity and score live beside it in the seat layout.
 private struct BuzzButton: View {
     let session: PartySession
     let playerID: Int
@@ -132,15 +306,12 @@ private struct BuzzButton: View {
             let enabled = session.canBuzz(playerID, at: now)
 
             Button {
+                guard session.canBuzz(playerID) else { return }
                 session.buzz(playerID)
             } label: {
                 VStack(spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(player.name)
-                            .font(.caption.bold())
-                        Text("\(player.score)")
-                            .font(.title3.monospacedDigit().bold())
-                    }
+                    Text("SET")
+                        .font(.headline.bold())
                     if isActive, let deadline = session.claimDeadline {
                         let progress = max(0, deadline.timeIntervalSince(now) / PartySession.claimWindow)
                         GeometryReader { proxy in
@@ -153,13 +324,11 @@ private struct BuzzButton: View {
                     } else if isLocked {
                         Image(systemName: "hourglass")
                             .font(.caption2)
-                    } else {
-                        Text("EST!")
-                            .font(.caption2.bold())
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
+                .frame(height: GameButtonStyle.Size.large.height)
                 .glassButtonSurface(
                     tint: player.color,
                     opacity: isActive ? 1 : isLocked ? 0.25 : 0.8,
@@ -196,7 +365,7 @@ private struct PartyGameOverView: View {
         VStack(spacing: 20) {
             VaryingTitleView(fontSize: 40)
             let winners = session.winners
-            Text(winners.count == 1 ? "\(winners[0].name) wins" : "draw")
+            Text(winners.count == 1 ? "\(winners[0].name) wins" : "Tie game")
                 .font(.system(size: 34, weight: .black, design: .rounded))
                 .foregroundStyle(winners.count == 1 ? winners[0].color : .primary)
 

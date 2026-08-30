@@ -14,6 +14,8 @@ final class NetworkPartySession {
         let name: String
         let color: Color
         var score: Int
+        var cardCount: Int
+        var topCard: Card?
         var lockedUntil: Date?
 
         func isLocked(at now: Date) -> Bool {
@@ -36,6 +38,8 @@ final class NetworkPartySession {
     private(set) var mismatchReasons: [String] = []
     private(set) var celebrationIDs: Set<Int> = []
     private(set) var matchToken = 0
+    private(set) var dealToken = 0
+    private(set) var penaltyToken = 0
     private(set) var deckCount = 0
     private(set) var doneCount = 0
     private(set) var doneTop: Card?
@@ -48,6 +52,7 @@ final class NetworkPartySession {
     private let engine = GameEngine()
     private var roster: [(id: String, name: String)] = []
     private var scores: [String: Int] = [:]
+    private var collectedCards: [String: [Card]] = [:]
     private var locks: [String: Date] = [:]
     private var expiryTask: Task<Void, Never>?
     private let remoteHost: GKPlayer?
@@ -74,7 +79,10 @@ final class NetworkPartySession {
 
         if isHost {
             roster = everyone.map { ($0.gamePlayerID, $0.displayName) }
-            for entry in roster { scores[entry.id] = 0 }
+            for entry in roster {
+                scores[entry.id] = 0
+                collectedCards[entry.id] = []
+            }
             engine.onAutoAdvance = { [weak self] in self?.publishAndBroadcast() }
             engine.start()
             publishAndBroadcast()
@@ -141,8 +149,9 @@ final class NetworkPartySession {
         switch engine.select(card) {
         case .pending:
             break
-        case .matched:
+        case .matched(let cards):
             scores[playerID, default: 0] += 1
+            collectedCards[playerID, default: []].append(contentsOf: cards)
             endClaim()
         case .mismatched:
             penalize(playerID)
@@ -162,6 +171,7 @@ final class NetworkPartySession {
     private func penalize(_ playerID: String) {
         scores[playerID] = max(0, (scores[playerID] ?? 0) - 1)
         locks[playerID] = Date.now.addingTimeInterval(PartySession.lockoutDuration)
+        penaltyToken += 1
     }
 
     private func endClaim() {
@@ -180,6 +190,7 @@ final class NetworkPartySession {
         mismatchReasons = engine.mismatchReasons
         celebrationIDs = engine.celebrationIDs
         matchToken = engine.matchToken
+        dealToken = engine.dealToken
         deckCount = engine.deck.count
         doneCount = engine.done.count
         doneTop = engine.done.last
@@ -190,6 +201,8 @@ final class NetworkPartySession {
                 name: entry.name,
                 color: PartySession.palette[index % PartySession.palette.count].1,
                 score: scores[entry.id] ?? 0,
+                cardCount: collectedCards[entry.id]?.count ?? 0,
+                topCard: collectedCards[entry.id]?.last,
                 lockedUntil: locks[entry.id]
             )
         }
@@ -202,6 +215,8 @@ final class NetworkPartySession {
                     name: entry.name,
                     colorIndex: index % PartySession.palette.count,
                     score: scores[entry.id] ?? 0,
+                    cardCount: collectedCards[entry.id]?.count ?? 0,
+                    topCardID: collectedCards[entry.id]?.last?.id,
                     lockRemaining: locks[entry.id].flatMap {
                         $0 > now ? $0.timeIntervalSince(now) : nil
                     }
@@ -214,6 +229,8 @@ final class NetworkPartySession {
             mismatchReasons: mismatchReasons,
             celebrationIDs: Array(celebrationIDs),
             matchToken: matchToken,
+            dealToken: dealToken,
+            penaltyToken: penaltyToken,
             deckCount: deckCount,
             doneCount: doneCount,
             doneTopID: doneTop?.id,
@@ -262,6 +279,8 @@ final class NetworkPartySession {
                 name: state.name,
                 color: PartySession.palette[state.colorIndex].1,
                 score: state.score,
+                cardCount: state.cardCount,
+                topCard: state.topCardID.map { Card(id: $0) },
                 lockedUntil: state.lockRemaining.map { now.addingTimeInterval($0) }
             )
         }
@@ -272,6 +291,8 @@ final class NetworkPartySession {
         mismatchReasons = snapshot.mismatchReasons
         celebrationIDs = Set(snapshot.celebrationIDs)
         matchToken = snapshot.matchToken
+        dealToken = snapshot.dealToken
+        penaltyToken = snapshot.penaltyToken
         deckCount = snapshot.deckCount
         doneCount = snapshot.doneCount
         doneTop = snapshot.doneTopID.map { Card(id: $0) }

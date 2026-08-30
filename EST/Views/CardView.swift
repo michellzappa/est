@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 /// A square card. Symbol placement by count: 1 centered, 2 side by side,
@@ -7,13 +8,18 @@ struct CardView: View {
     var isSelected = false
     var isDimmed = false
 
+    private static let referenceCardSide: CGFloat = 100
+    private static let symbolGrowthRate = 2.0 / 3.0
+    private static let symbolFraction: CGFloat = 0.23
+    private static let gapFraction: CGFloat = 0.10
+
     var body: some View {
         GeometryReader { proxy in
             let side = proxy.size.width
 
             ZStack {
                 RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                    .fill(Appearance.shared.theme.cardSurface)
                     .shadow(
                         color: .black.opacity(isSelected ? 0.35 : 0.15),
                         radius: isSelected ? side * 0.06 : side * 0.03,
@@ -21,7 +27,7 @@ struct CardView: View {
                     )
                 RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
                     .strokeBorder(
-                        isSelected ? card.tint.color : Color.primary.opacity(0.12),
+                        isSelected ? card.tint.color : Appearance.shared.theme.cardBorder,
                         lineWidth: isSelected ? 3 : 1
                     )
 
@@ -35,8 +41,15 @@ struct CardView: View {
 
     @ViewBuilder
     private func symbols(side: CGFloat) -> some View {
-        let s = side * 0.23
-        let gap = side * 0.10
+        // Keep symbols a little more legible on small cards and stop them
+        // dominating larger iPad cards. Both symbol size and spacing use the
+        // same nonlinear scale so the group keeps its proportions.
+        let normalizedSide = max(side, 1) / Self.referenceCardSide
+        let groupScale = CGFloat(
+            Foundation.pow(Double(normalizedSide), Self.symbolGrowthRate)
+        )
+        let s = Self.referenceCardSide * Self.symbolFraction * groupScale
+        let gap = Self.referenceCardSide * Self.gapFraction * groupScale
         ZStack {
             switch card.count {
             case 1:

@@ -1,6 +1,6 @@
 # EST — agent notes
 
-EST is a SwiftUI iPhone spinoff of the card game SET. 81 cards, four traits,
+EST is a SwiftUI iPhone/iPad spinoff of the card game SET. 81 cards, four traits,
 three values each. The app name shuffles its letters in-app (EST/TSE/STE/…);
 the canonical product name is EST.
 
@@ -18,8 +18,11 @@ file surfaces as misleading "has no member" errors in other files, not as
 "file not found".
 
 Versioning: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` live in
-`project.yml`. Bump `CURRENT_PROJECT_VERSION` by 1 every time you hand MZ a
-new build to test (then `xcodegen generate`). Settings shows the numbers.
+`project.yml`. Before every agent validation/build, bump
+`CURRENT_PROJECT_VERSION` by 1, then run `xcodegen generate`; never reuse a
+build number for a new build. This applies to ordinary work-in-progress builds
+as well as builds handed to MZ for testing. Keep `MARKETING_VERSION` unchanged
+unless the task is a release/versioning task. Settings shows the numbers.
 
 The shared scheme is declared in `project.yml` (`scheme: testTargets: []`).
 Do not remove it: without it a regenerate leaves the project scheme-less and
@@ -80,15 +83,19 @@ drive the UI unless asked.
 - Look settings live in `Appearance.shared` (fill style, color theme).
   `Card.Tint.color` delegates to the active theme; never hardcode card colors
   in views. The icon generator script keeps its own baked colors.
-- `DEVELOPMENT_TEAM` is intentionally empty in `project.yml`. Simulator builds
-  need `CODE_SIGNING_ALLOWED=NO`; device builds need MZ's team set locally.
-- iPhone-only (`TARGETED_DEVICE_FAMILY: 1`), portrait. MZ decided against iPad.
+- Signing defaults to automatic with Centaur Labs (`DEVELOPMENT_TEAM:
+  992N457T8D`) in `project.yml`. Simulator builds still need
+  `CODE_SIGNING_ALLOWED=NO`.
+- iPhone and iPad (`TARGETED_DEVICE_FAMILY: 1,2`); iPhone remains portrait,
+  while iPad supports portrait and landscape so four seats can use every edge.
+  Square-ish large-screen iPhone windows use the same responsive four-seat
+  layout when there is enough room.
 - Solo rules MZ decided (2026-08-29): no mismatch penalty, auto-deal the extra
   3 cards, matchmaking open to friends + nearby + strangers. A hinted solo run
   keeps the local personal best but never submits to the leaderboard.
-- Modes MZ decided: solo and 2-player duel only. The UI exposes no 3/4-player
-  option; `PartySession` and the net protocol still support up to 4, so
-  re-enabling is a UI + `GKMatchRequest.maxPlayers` change.
+- Modes MZ decided: solo and duel. The UI exposes two-player duel on iPhone,
+  and two- or four-player one-device tables on iPad; iPad matchmaking can also
+  fill the existing four-player network roster.
 
 ## Not built yet
 

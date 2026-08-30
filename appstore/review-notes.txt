@@ -1,0 +1,17 @@
+EST can be played without an account. On first launch, tap Skip if the
+tutorial appears. App Review can test Solo 81, Quick 27, and one-phone Duel
+without signing in. Game Center is optional and is used for leaderboards and
+two-device matchmaking.
+
+The app has no ads or subscriptions. It includes one optional, one-time
+non-consumable support purchase. It unlocks no gameplay: the supporter mark
+and optional cosmetic finish are purely cosmetic, and every game mode and
+feature is available without payment. App Review can test the app without
+buying it. The purchase is available from Settings > Support EST and can be
+tested with the included StoreKit configuration.
+
+The app does not collect personal data. Optional anonymous diagnostics can be
+disabled in Settings; when enabled, they send one coarse aggregate batch per
+week and never include gameplay events or identifiers. The source code and
+privacy policy are available at:
+https://github.com/michellzappa/est

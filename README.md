@@ -1,88 +1,138 @@
 # EST
 
-A free, open source card game for iPhone, made in the spirit of SET.
+EST is a free, open-source iPhone and iPad game about finding patterns in cards. It is
+inspired by SET, but it has its own name, artwork, and code.
 
-The deck has 81 square cards, one for every combination of four traits: count
-(1, 2, 3), color (red, blue, yellow), shape (circle, square, triangle), and
-fill (solid, translucent, outline). Find three cards where each trait is
-either the same on all three or different on all three. Race the deck alone
-against a Game Center leaderboard, pass one phone around the table, or play
-live across devices.
+The deck has 81 cards. Each card combines four traits:
 
-## Why
+- count: 1, 2, or 3
+- color: red, blue, or yellow
+- shape: circle, square, or triangle
+- fill: solid, shaded, or outline
 
-I love SET. I have given away more copies of it than of any other game. The
-structure behind it is pure mathematics: the deck is the affine space AG(4,3),
-the same object at the center of the cap set problem, and it existed before
-any card was printed. EST is my interpretation of that structure, drawn from
-first principles: square cards, elementary shapes, a name that refuses to sit
-still. It shuffles its own letters while you watch.
+Find three cards where every trait is either the same on all three cards or
+different on all three cards. Game Center is optional. You can play alone,
+pass one phone around the table, or play a live duel across two devices.
 
-EST is an homage, not a substitute. If you have never held the original,
-[buy a copy of SET](https://www.playmonster.com/brands/set/). It is a perfect
-object.
+## Play
+
+- Solo 81 clears the full deck against the clock. A personal best stays on
+  the device, and an eligible run can also go to Game Center.
+- Quick 27 uses the 27 solid cards for a shorter round. The fill trait
+  stays fixed, so you check three traits instead of four.
+- Duel lets you race another player on one phone or across two devices. On iPad,
+  four players can share one table with a buzzer on each edge. Buzz first, then
+  tap the three cards before the claim window closes.
+- The tutorial teaches the rule with worked examples,
+  and the math explorer lets you see the deck as a four-dimensional space.
+- You can choose a color theme, pick a fill style, and turn sound
+  effects or haptics on and off.
+
+Solo leaderboard timing uses a monotonic clock and rejects physically
+impossible completion times before submitting to Game Center. Hinted runs
+remain local-only.
+
+Hints keep the run off the Game Center leaderboard, but you can still set a
+local personal best. EST has no ads or subscriptions. An optional one-time
+support purchase adds a permanent supporter mark and an optional cosmetic
+finish, while leaving every mode and gameplay feature free for everyone.
+
+## Why EST
+
+I love SET. I have given away more copies of it than of any other game. Its
+rules are also a neat piece of mathematics: the 81 cards are the points of
+AG(4,3), a four-dimensional affine space over a field with three elements.
+EST is my attempt to make that structure visible without turning the game
+into a textbook.
+
+The name shuffles its own letters while you play. The cards use square shapes
+and simple marks. That is about as far as the homage goes.
+
+If you have never played the original, [buy a copy of
+SET](https://www.playmonster.com/brands/set/). It is a near-perfect game.
 
 ## The mathematics
 
-Each card is a point in AG(4,3), the four-dimensional affine space over the
-field with three elements. Write a card as four base-3 digits (count, color,
-shape, fill) and a valid set is exactly a line: three points whose
-coordinates sum to zero in every position. That is why any two cards have one
-and only one completing third, and why the deck's 81 points carry exactly
-1080 lines.
+Represent a card as four base-3 digits: count, color, shape, and fill. A valid
+set is a line in AG(4,3), which means the three cards add up to zero in every
+coordinate modulo 3. Once you choose two cards, that rule gives you one and
+only one completing card. The 81-card deck contains 1080 such sets.
 
-The zero-sum rule has table-level consequences you can watch in the app. The
-whole deck sums to zero and every removed set sums to zero, so the leftover
-at the end of a game always sums to zero too. A leftover of exactly 3 cards
-would itself be a set, so it cannot happen: you finish with 0 cards (a
-perfect clear) or with 6 or more that hide no set.
+The same rule explains a few endgame details. The whole deck sums to zero,
+and every set you remove also sums to zero. The cards left at the end must
+therefore sum to zero too. Three leftover cards would make a set, so a game
+ends with either a perfect clear or at least six cards that contain no set.
 
-A group of cards with no set in it is called a cap. Random 12-card tables are
-capless often enough that the game regularly deals 15. The largest possible
-cap in this space has 20 cards, proved by Giuseppe Pellegrino in 1971, which
-is why 21 cards always contain a set. How caps grow as the dimension rises
-stayed open for decades until Croot, Lev, Pach, Ellenberg and Gijswijt
-settled the growth rate in 2016, one of the cleanest breakthroughs in recent
-combinatorics. The endgame screen tells you which cap you finished against.
+A set-free group of cards is called a cap. Giuseppe Pellegrino proved that the
+largest cap in AG(4,3) has 20 cards, so any 21 cards contain a set. Later work
+by Croot, Lev, Pach, Ellenberg, and Gijswijt established how the maximum cap
+size grows in higher dimensions. EST's endgame screen shows the cap you
+finished against.
 
-Reading: Davis and Maclagan, "The Card Game SET" (Mathematical
-Intelligencer, 2003); McMahon, Gordon, Gordon and Gordon, "The Joy of SET"
-(Princeton, 2016); Ellenberg and Gijswijt, "On large subsets of F_q^n with
-no three-term arithmetic progression" (Annals of Mathematics, 2017).
+Further reading:
 
-## Relationship to SET
+- Davis and Maclagan, "The Card Game SET," *The Mathematical Intelligencer*,
+  2003.
+- McMahon, Gordon, Gordon, and Gordon, "The Joy of SET," Princeton University
+  Press, 2016.
+- Ellenberg and Gijswijt, "On large subsets of F_q^n with no three-term
+  arithmetic progression," *Annals of Mathematics*, 2017.
 
-SET is a registered trademark of Cannei, LLC, and the game is published by
-PlayMonster LLC. EST is not affiliated with, sponsored by, or endorsed by
-either company. This project uses its own name, artwork, and code, and
-mentions SET only to credit the inspiration.
+## Build
 
-## Playing
+EST is an XcodeGen project for iPhone and iPad. You need Xcode, an iOS 17 SDK, and
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.30 or newer.
 
-- **Solo 81**: clear the whole deck as fast as you can. Completion time goes
-  to a global Game Center leaderboard. A hint marks the run and keeps it off
-  the board.
-- **Quick 27**: the 27 solid cards, 9 on the table, its own leaderboard. One
-  trait drops out, so it plays fast.
-- **Duel (one phone)**: two players, buzz buttons on opposite edges. See a
-  valid trio, hit your button, and you get 3 seconds to tap the cards. Misses
-  cost a point and a short lockout.
-- **Duel (two phones)**: same rules over Game Center, online or nearby.
+The Xcode project is generated from `project.yml`. Edit that file, then run:
 
-## Building
-
-Requires Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
-
-```
+```sh
 xcodegen generate
-xcodebuild -project EST.xcodeproj -scheme EST -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO
+xcodebuild -project EST.xcodeproj -scheme EST \
+  -destination 'generic/platform=iOS Simulator' \
+  build CODE_SIGNING_ALLOWED=NO
 ```
 
-The project file is generated; edit `project.yml`, never the `.xcodeproj`.
-Game Center features need an App Store Connect record with a leaderboard named
-`est.solo.completion.time` (elapsed time, ascending).
+Game Center features need an App Store Connect app record and the Game Center
+capability. The leaderboard identifiers are `est.solo.completion.time` and
+`est.quick.completion.time`. Two signed-in devices, or a device and a
+simulator, are needed to test a network duel.
+
+Do not hand-edit `EST.xcodeproj`. Regenerate it after adding or removing a
+source file.
+
+## Repository layout
+
+- `EST/Models` contains the card model, set math, game engine, and multiplayer
+  sessions.
+- `EST/Views` contains the SwiftUI screens and reusable card and button views.
+- `ESTUITests` contains the stable screenshot tests used for App Store metadata.
+- `appstore` contains the listing copy, metadata generator, and release assets.
+- `telemetry` contains the opt-in aggregate diagnostics intake Worker and schema.
+- `project.yml` is the source of truth for the Xcode project.
+
+## Contributing
+
+Bug reports, copy edits, and small code changes are welcome. Open an issue
+before a larger change so the direction is clear, then include the clean build
+command above in your pull request or issue notes.
+
+Keep the set-validation logic in `Card`, and keep table behavior in
+`GameEngine`. That separation lets the tutorial, solo game, and multiplayer
+views use the same rules.
+
+## Privacy
+
+EST stores preferences and personal bests on the device. Optional anonymous
+diagnostics send one coarse aggregate batch per week when enabled; they never
+include personal data or gameplay events. Game Center handles its own account,
+leaderboard, and matchmaking data. See the [privacy policy](PRIVACY.md) and
+[telemetry details](docs/telemetry.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE). The license covers the code and artwork in this
-repository. It grants no rights to the SET trademark.
+The code and artwork are available under the [MIT License](LICENSE). The
+license does not grant rights to the SET trademark.
+
+SET is a registered trademark of Cannei, LLC, and the game is published by
+PlayMonster LLC. EST is not affiliated with, sponsored by, or endorsed by
+either company.

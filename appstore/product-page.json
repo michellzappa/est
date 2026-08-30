@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "locale": "en-US",
+  "device": {
+    "key": "iphone69",
+    "width": 1320,
+    "height": 2868,
+    "appearance": "light"
+  },
+  "panels": [
+    {
+      "id": "solo-81",
+      "source": "solo-81.png",
+      "headline": "Clear the deck *against the clock.*",
+      "accent": "#356fe5",
+      "background": "#3d6eeb",
+      "text": "#ffffff",
+      "alt": "EST Solo 81 game board with twelve cards and a timer"
+    },
+    {
+      "id": "rule",
+      "source": "title.png",
+      "headline": "Three cards. *One rule.*",
+      "accent": "#356fe5",
+      "background": "#3d6eeb",
+      "text": "#ffffff",
+      "alt": "EST title screen showing three cards and the game modes"
+    },
+    {
+      "id": "quick-27",
+      "source": "quick-27.png",
+      "headline": "Quick game. *Same rule.*",
+      "accent": "#efa629",
+      "background": "#f0a833",
+      "text": "#111111",
+      "alt": "EST Quick 27 game board with solid-fill cards"
+    },
+    {
+      "id": "duel",
+      "source": "duel.png",
+      "headline": "Play *on one phone, two, or four-up on iPad.*",
+      "accent": "#e9544d",
+      "background": "#de5147",
+      "text": "#ffffff",
+      "alt": "EST four-player game board on iPad"
+    },
+    {
+      "id": "rules",
+      "source": "rules.png",
+      "headline": "Learn the rule *one step at a time.*",
+      "accent": "#356fe5",
+      "background": "#3d6eeb",
+      "text": "#ffffff",
+      "alt": "EST How to play rules explainer"
+    },
+    {
+      "id": "mathematics",
+      "source": "mathematics.png",
+      "headline": "Every set is a line *in four dimensions.*",
+      "accent": "#efa629",
+      "background": "#f0a833",
+      "text": "#111111",
+      "screenTop": 720,
+      "screenWidth": 1040,
+      "alt": "EST mathematics explorer showing card coordinates and set completion"
+    }
+  ]
+}

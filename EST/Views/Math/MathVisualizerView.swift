@@ -16,10 +16,20 @@ struct MathVisualizerView: View {
             }
         }
 
-        /// Every value gets a themed accent, while the editor still shows
-        /// the raw trit rather than the user-facing card value.
+        func valueName(for value: Int) -> String {
+            switch self {
+            case .count: String(value + 1)
+            case .color: Card.Tint.allCases[value].name
+            case .shape: Card.Symbol.allCases[value].name
+            case .fill: Card.Fill.allCases[value].name
+            }
+        }
+
+        /// Only the color coordinate changes the editor's accent. The other
+        /// coordinates keep one stable surface while their card preview
+        /// changes.
         func accent(for value: Int) -> Card.Tint {
-            Card.Tint.allCases[value]
+            self == .color ? Card.Tint.allCases[value] : .blue
         }
     }
 
@@ -60,32 +70,32 @@ struct MathVisualizerView: View {
                 intro
 
                 sectionCard(
-                    eyebrow: "01 / four trits",
-                    title: "a card is four digits",
-                    subtitle: "Tap a trait to cycle its value. The card and its base-3 id update together."
+                    eyebrow: "01 / four coordinates",
+                    title: "A card is four digits",
+                    subtitle: "Tap a trait to change it. The card's base-3 ID changes with it."
                 ) {
                     editorSection
                 }
 
                 sectionCard(
                     eyebrow: "02 / the set rule",
-                    title: "two cards force the third",
-                    subtitle: "For every trait, the sum is zero modulo three. That leaves one possible third card."
+                    title: "Two cards determine the third",
+                    subtitle: "Each trait sums to zero modulo three, leaving one possible third card."
                 ) {
                     forceSection
                 }
 
                 sectionCard(
                     eyebrow: "03 / the whole space",
-                    title: "all 81 at once",
-                    subtitle: "The two trits on each axis make a 9 × 9 map of every card. Tap two cells to reveal the one they force."
+                    title: "All 81 cards",
+                    subtitle: "Two trits on each axis create a 9 × 9 map of the deck. Tap two cells to reveal the card they determine."
                 ) {
                     gridSection
                 }
 
                 sectionCard(
-                    eyebrow: "stretch / cap set",
-                    title: "the Pellegrino cap",
+                    eyebrow: "04 / cap set",
+                    title: "A 20-card cap",
                     subtitle: "These 20 cards contain no set. Add any 21st card and a set must appear."
                 ) {
                     capSection
@@ -95,14 +105,14 @@ struct MathVisualizerView: View {
             .padding(.top, 12)
             .padding(.bottom, 28)
         }
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .background(Appearance.shared.gameBackground.ignoresSafeArea())
         .navigationTitle("The mathematics")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("cards are points. sets are lines.")
+            Text("Cards are points. Sets are lines.")
                 .font(.title2.bold())
             Text("EST is the affine space AG(4,3): four coordinates, three values each, and 81 points in all.")
                 .font(.subheadline)
@@ -118,7 +128,7 @@ struct MathVisualizerView: View {
                 .frame(maxWidth: .infinity)
                 .animation(.spring(duration: 0.3), value: editorCard)
 
-            Text("base-3 id \(editorCard.id) / 0–80")
+            Text("Base-3 ID \(editorCard.id) / 0 to 80")
                 .font(.caption.weight(.semibold).monospaced())
                 .foregroundStyle(.secondary)
 
@@ -127,52 +137,112 @@ struct MathVisualizerView: View {
                 spacing: 10
             ) {
                 ForEach(Trait.allCases) { trait in
-                    let value = editorTrits[trait.rawValue]
-                    Button {
-                        cycle(trait)
-                    } label: {
-                        VStack(spacing: 4) {
-                            Text(trait.label)
-                                .font(.caption.weight(.semibold))
-                            Text(String(value))
-                                .font(.title3.bold().monospacedDigit())
-                            Text("tap to cycle")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .glassButtonSurface(
-                            tint: trait.accent(for: value).color,
-                            opacity: 0.12,
-                            cornerRadius: 14
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(trait.label) trit \(value)")
-                    .accessibilityHint("cycles from zero to two")
+                    traitControl(for: trait)
                 }
             }
         }
     }
 
+    private func traitControl(for trait: Trait) -> some View {
+        let value = editorTrits[trait.rawValue]
+        let accent = trait.accent(for: value).color
+
+        return Button {
+            cycle(trait)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(trait.label)
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                    Text("Tap to change")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 5) {
+                    ForEach(0..<3, id: \.self) { state in
+                        VStack(spacing: 4) {
+                            traitStatePreview(
+                                trait: trait,
+                                value: state,
+                                isSelected: state == value
+                            )
+                            Text(trait.valueName(for: state))
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .foregroundStyle(state == value ? accent : .secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background {
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(state == value ? accent.opacity(0.14) : .clear)
+                        }
+                        .overlay {
+                            if state == value {
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .stroke(accent.opacity(0.55), lineWidth: 1)
+                            }
+                        }
+                    }
+                }
+
+                HStack(spacing: 4) {
+                    Text("Selected: \(trait.valueName(for: value))")
+                    Text("Trit \(value)")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption2.monospaced())
+            }
+            .frame(maxWidth: .infinity)
+            .padding(10)
+            .glassButtonSurface(
+                tint: accent,
+                opacity: 0.12,
+                cornerRadius: 14
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(trait.label), \(trait.valueName(for: value)), trit \(value)")
+        .accessibilityHint("Cycles through the three values")
+    }
+
+    private func traitStatePreview(
+        trait: Trait,
+        value: Int,
+        isSelected: Bool
+    ) -> some View {
+        CardView(
+            card: Card(
+                count: trait == .count ? value + 1 : 1,
+                tint: trait == .color ? Card.Tint.allCases[value] : .blue,
+                symbol: trait == .shape ? Card.Symbol.allCases[value] : .circle,
+                fill: trait == .fill ? Card.Fill.allCases[value] : .solid
+            ),
+            isSelected: isSelected
+        )
+        .frame(width: 34, height: 34)
+    }
+
     private var forceSection: some View {
         VStack(spacing: 14) {
             HStack(spacing: 8) {
-                explanatoryCard(forcePair[0], label: "first")
+                explanatoryCard(forcePair[0], label: "first card")
                 Image(systemName: "plus")
                     .font(.headline)
                     .foregroundStyle(.secondary)
-                explanatoryCard(forcePair[1], label: "second")
+                explanatoryCard(forcePair[1], label: "second card")
                 Image(systemName: "equal")
                     .font(.headline)
                     .foregroundStyle(.secondary)
-                explanatoryCard(completingCard, label: "forced third", isThird: true)
+                explanatoryCard(completingCard, label: "third card", isThird: true)
             }
             .frame(maxWidth: .infinity)
 
-            Text(Card.isValidSet(forcePair[0], forcePair[1], completingCard) ? "a set" : "not a set")
+            Text(Card.isValidSet(forcePair[0], forcePair[1], completingCard) ? "Set" : "Not a set")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(Card.Tint.blue.color)
 
@@ -208,10 +278,10 @@ struct MathVisualizerView: View {
                     forcePair = Array(trio.prefix(2))
                 }
             } label: {
-                Label("shuffle the pair", systemImage: "shuffle")
+                Label("Shuffle the pair", systemImage: "shuffle")
                     .font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.game(.secondary, tint: .blue, size: .compact))
         }
     }
 
@@ -223,11 +293,11 @@ struct MathVisualizerView: View {
                 Button {
                     showRandomLine()
                 } label: {
-                    Label("show me a line", systemImage: "wand.and.stars")
+                    Label("Show a set", systemImage: "wand.and.stars")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.game(.primary, tint: .blue, size: .compact))
 
                 Button {
                     withAnimation(.spring(duration: 0.35)) {
@@ -237,14 +307,18 @@ struct MathVisualizerView: View {
                     Image(systemName: "xmark")
                         .frame(width: 20)
                 }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("clear line")
+                .buttonStyle(.game(.quiet, tint: .blue, size: .icon))
+                .accessibilityLabel("Clear selection")
             }
 
             Text(gridInstruction)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider()
+
+            FourDimensionalProjectionView()
         }
     }
 
@@ -264,7 +338,7 @@ struct MathVisualizerView: View {
             }
 
             HStack {
-                Label("20 cards", systemImage: "square.grid.3x3.fill")
+                Label("20-card cap", systemImage: "square.grid.3x3.fill")
                 Spacer()
                 Text("\(Card.countSets(in: cards)) sets")
                     .foregroundStyle(Card.Tint.blue.color)
@@ -334,7 +408,7 @@ struct MathVisualizerView: View {
                 }
 
                 if selectedGridCards.count > 1 {
-                    TorusLineView(
+                    GridLineView(
                         points: selectedGridCards.map {
                             gridPoint(for: $0, cellSide: cellSide, gap: gap)
                         },
@@ -373,16 +447,16 @@ struct MathVisualizerView: View {
         .frame(width: side, height: side)
         .contentShape(Rectangle())
         .accessibilityLabel("card \(card.id), row \(row + 1), column \(column + 1)")
-        .accessibilityHint("tap to choose this card")
+        .accessibilityHint("Tap to choose this card")
     }
 
     private var gridInstruction: String {
         switch gridSelection.count {
-        case 0: return "tap any two cells. the third card is unique."
-        case 1: return "one selected. tap a second cell."
+        case 0: return "Tap any two cells. The third card is unique."
+        case 1: return "One selected. Tap a second cell."
         default:
             let third = gridSelection[2]
-            return "the third card is \(third). the line wraps at the edges."
+            return "The third card is \(third). The line stays inside this map."
         }
     }
 
@@ -439,10 +513,8 @@ struct MathVisualizerView: View {
     }
 }
 
-/// Draws each segment along the shortest route on a square torus. Copies of
-/// the segment shifted by one canvas width/height make edge crossings appear
-/// on the opposite edge as well.
-private struct TorusLineView: View {
+/// Draws each selected-set segment as a straight line inside the 9 × 9 map.
+private struct GridLineView: View {
     let points: [CGPoint]
     let canvasSize: CGSize
 
@@ -450,7 +522,6 @@ private struct TorusLineView: View {
         Canvas { context, size in
             guard points.count > 1 else { return }
 
-            let tint = Card.Tint.blue.color
             let style = StrokeStyle(
                 lineWidth: max(2, size.width * 0.012),
                 lineCap: .round,
@@ -458,48 +529,18 @@ private struct TorusLineView: View {
             )
 
             for pair in zip(points, points.dropFirst()) {
-                drawWrappedSegment(
-                    from: pair.0,
-                    to: pair.1,
-                    in: &context,
-                    size: canvasSize,
-                    style: style,
-                    tint: tint
+                var path = Path()
+                path.move(to: pair.0)
+                path.addLine(to: pair.1)
+                context.stroke(
+                    path,
+                    with: .color(Card.Tint.blue.color.opacity(0.82)),
+                    style: style
                 )
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
-    }
-
-    private func drawWrappedSegment(
-        from start: CGPoint,
-        to end: CGPoint,
-        in context: inout GraphicsContext,
-        size: CGSize,
-        style: StrokeStyle,
-        tint: Color
-    ) {
-        var dx = end.x - start.x
-        var dy = end.y - start.y
-
-        if dx > size.width / 2 { dx -= size.width }
-        if dx < -size.width / 2 { dx += size.width }
-        if dy > size.height / 2 { dy -= size.height }
-        if dy < -size.height / 2 { dy += size.height }
-
-        let wrappedEnd = CGPoint(x: start.x + dx, y: start.y + dy)
-        for xShift in -1...1 {
-            for yShift in -1...1 {
-                let offset = CGSize(
-                    width: CGFloat(xShift) * size.width,
-                    height: CGFloat(yShift) * size.height
-                )
-                var path = Path()
-                path.move(to: CGPoint(x: start.x + offset.width, y: start.y + offset.height))
-                path.addLine(to: CGPoint(x: wrappedEnd.x + offset.width, y: wrappedEnd.y + offset.height))
-                context.stroke(path, with: .color(tint.opacity(0.82)), style: style)
-            }
-        }
+        .clipShape(Rectangle())
     }
 }
 

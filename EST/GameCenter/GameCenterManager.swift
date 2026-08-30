@@ -6,7 +6,7 @@ import UIKit
 /// access point on the title screen.
 ///
 /// The leaderboard must exist in App Store Connect with this exact ID,
-/// score format "Elapsed Time — To the Hundredth of a Second", sort order
+/// score format "Elapsed Time, To the Hundredth of a Second", sort order
 /// ascending (lower is better).
 @Observable
 final class GameCenterManager {
@@ -14,8 +14,13 @@ final class GameCenterManager {
     static let soloLeaderboardID = "est.solo.completion.time"
     static let quickLeaderboardID = "est.quick.completion.time"
 
+    static func leaderboardID(for variant: GameEngine.Variant) -> String {
+        variant == .quick ? quickLeaderboardID : soloLeaderboardID
+    }
+
     private(set) var isAuthenticated = false
     private let dismissDelegate = DismissDelegate()
+    private var wantsAccessPointVisible = false
 
     private init() {}
 
@@ -26,19 +31,41 @@ final class GameCenterManager {
                 return
             }
             self?.isAuthenticated = GKLocalPlayer.local.isAuthenticated
+            self?.updateAccessPoint()
         }
     }
 
     func setAccessPointVisible(_ visible: Bool) {
-        GKAccessPoint.shared.location = .topLeading
-        GKAccessPoint.shared.showHighlights = true
-        GKAccessPoint.shared.isActive = visible && isAuthenticated
+        wantsAccessPointVisible = visible
+        updateAccessPoint()
     }
 
-    /// Game Center elapsed-time leaderboards store centiseconds.
-    func submitSoloTime(_ seconds: TimeInterval, leaderboardID: String = GameCenterManager.soloLeaderboardID) {
-        guard isAuthenticated else { return }
-        let centiseconds = Int(seconds * 100)
+    private func updateAccessPoint() {
+        GKAccessPoint.shared.location = .topLeading
+        GKAccessPoint.shared.showHighlights = true
+        GKAccessPoint.shared.isActive = wantsAccessPointVisible && isAuthenticated
+    }
+
+    /// Submit only a finite, physically possible EST completion time. This is
+    /// a client-side guard for ordinary mistakes and clock tampering; a
+    /// modified client could still call GameKit directly.
+    @discardableResult
+    func submitSoloTime(
+        _ seconds: TimeInterval,
+        variant: GameEngine.Variant,
+        wasPaused: Bool
+    ) -> Bool {
+        guard isAuthenticated,
+              !wasPaused,
+              GameEngine.isLeaderboardTimeEligible(seconds, for: variant),
+              seconds <= TimeInterval(Int.max) / 100
+        else { return false }
+
+        let centiseconds = Int((seconds * 100).rounded(.down))
+        let minimumCentiseconds = GameEngine.minimumLeaderboardCentiseconds(for: variant)
+        guard centiseconds >= minimumCentiseconds else { return false }
+
+        let leaderboardID = Self.leaderboardID(for: variant)
         Task {
             try? await GKLeaderboard.submitScore(
                 centiseconds,
@@ -47,10 +74,12 @@ final class GameCenterManager {
                 leaderboardIDs: [leaderboardID]
             )
         }
+        return true
     }
 
     func showLeaderboard(id: String = GameCenterManager.soloLeaderboardID) {
         guard isAuthenticated else { return }
+        ESTTelemetry.record(.leaderboardViewed)
         let vc = GKGameCenterViewController(
             leaderboardID: id,
             playerScope: .global,

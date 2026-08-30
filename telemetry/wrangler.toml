@@ -1,0 +1,12 @@
+name = "est-telemetry"
+main = "worker.js"
+compatibility_date = "2026-08-29"
+
+[triggers]
+crons = ["17 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "est-telemetry"
+# Set this after creating the D1 database.
+database_id = "REPLACE_WITH_D1_DATABASE_ID"

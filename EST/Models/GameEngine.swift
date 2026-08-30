@@ -30,15 +30,44 @@ final class GameEngine {
     private(set) var selection: Set<Card> = []
     private(set) var isFinished = false
 
-    private(set) var startDate: Date?
-    private(set) var endDate: Date?
+    /// Minimum physically possible leaderboard times for the current table
+    /// rules. The final celebration is not charged because the clock ends
+    /// when the last match begins.
+    static func minimumLeaderboardTime(for variant: Variant) -> TimeInterval {
+        switch variant {
+        case .full:
+            // A full-deck cap has at most 20 cards. The leftover count is a
+            // multiple of three, so at least 21 matches are needed and 20
+            // celebrations must finish before the final match.
+            return 20 * celebrationDuration
+        case .quick:
+            // A 3-dimensional 27-card deck has at most a 9-card cap. At
+            // least six matches are needed and five celebrations precede
+            // the final match.
+            return 5 * celebrationDuration
+        }
+    }
 
-    /// Pause support: while paused the clock freezes; paused stretches are
-    /// subtracted from elapsed time.
-    private var pauseStart: Date?
-    private var pausedTotal: TimeInterval = 0
+    static func minimumLeaderboardCentiseconds(for variant: Variant) -> Int {
+        Int((minimumLeaderboardTime(for: variant) * 100).rounded(.up))
+    }
 
-    var isPaused: Bool { pauseStart != nil }
+    static func isLeaderboardTimeEligible(_ seconds: TimeInterval, for variant: Variant) -> Bool {
+        seconds.isFinite && seconds >= minimumLeaderboardTime(for: variant)
+    }
+
+    /// `Date` follows the user-adjustable wall clock and is not suitable for
+    /// competitive timing. ContinuousClock is monotonic and keeps advancing
+    /// while the device sleeps; pause intervals are explicitly subtracted.
+    private var startInstant: ContinuousClock.Instant?
+    private var endInstant: ContinuousClock.Instant?
+    private var pauseStartInstant: ContinuousClock.Instant?
+    private var pausedTotal: Duration = .zero
+
+    var isPaused: Bool { pauseStartInstant != nil }
+    /// Once a run has been paused or interrupted, it can still set a local
+    /// personal best but must not enter the competitive leaderboard.
+    private(set) var wasPaused = false
 
     /// Bumped on every mismatch so views can drive a shake animation.
     private(set) var mismatchToken = 0
@@ -49,15 +78,18 @@ final class GameEngine {
     /// A matched trio celebrates on the table for a beat before it is
     /// replaced. While non-empty, input is ignored.
     private(set) var celebrationIDs: Set<Int> = []
-    /// Bumped on every match, at celebration start — haptic/audio trigger.
+    /// Bumped on every match at celebration start. Views use it for
+    /// haptic and audio feedback.
     private(set) var matchToken = 0
+    /// Bumped whenever the engine deals one extra group of cards.
+    private(set) var dealToken = 0
     /// Called after the engine advances on its own (celebration ends and
     /// replacements are dealt). The network host rebroadcasts here.
     var onAutoAdvance: (() -> Void)?
 
     static let celebrationDuration: TimeInterval = 0.9
     private var celebrationTask: Task<Void, Never>?
-    private var lastMatchDate: Date?
+    private var lastMatchInstant: ContinuousClock.Instant?
 
     var setsFound: Int { done.count / 3 }
 
@@ -65,9 +97,13 @@ final class GameEngine {
         self.variant = variant
         celebrationTask?.cancel()
         celebrationIDs = []
-        lastMatchDate = nil
-        pauseStart = nil
-        pausedTotal = 0
+        lastMatchInstant = nil
+        dealToken = 0
+        startInstant = nil
+        endInstant = nil
+        pauseStartInstant = nil
+        pausedTotal = .zero
+        wasPaused = false
         let source = variant == .quick
             ? Card.fullDeck.filter { $0.fill == .solid }
             : Card.fullDeck
@@ -76,28 +112,37 @@ final class GameEngine {
         done = []
         selection = []
         isFinished = false
-        endDate = nil
         table = Array(deck.prefix(tableBaseline))
         deck.removeFirst(min(tableBaseline, deck.count))
         dealUntilSetAvailable()
-        startDate = .now
+        startInstant = .now
     }
 
-    func elapsed(at now: Date = .now) -> TimeInterval {
-        guard let startDate else { return 0 }
-        let effectiveEnd = endDate ?? pauseStart ?? now
-        return effectiveEnd.timeIntervalSince(startDate) - pausedTotal
+    func elapsed() -> TimeInterval {
+        guard let startInstant else { return 0 }
+        let effectiveEnd = endInstant ?? pauseStartInstant ?? .now
+        let elapsed = timeInterval(startInstant.duration(to: effectiveEnd))
+        return max(0, elapsed - timeInterval(pausedTotal))
     }
 
     func pause() {
-        guard startDate != nil, !isFinished, pauseStart == nil else { return }
-        pauseStart = .now
+        guard startInstant != nil, !isFinished, pauseStartInstant == nil else { return }
+        wasPaused = true
+        pauseStartInstant = .now
     }
 
     func resume() {
-        guard let pauseStart else { return }
-        pausedTotal += Date.now.timeIntervalSince(pauseStart)
-        self.pauseStart = nil
+        guard let pauseStartInstant else { return }
+        // A final match can resolve while a pause overlay is still visible.
+        // Never subtract time that occurred after the engine already ended.
+        if let endInstant {
+            if pauseStartInstant < endInstant {
+                pausedTotal += pauseStartInstant.duration(to: endInstant)
+            }
+        } else {
+            pausedTotal += pauseStartInstant.duration(to: .now)
+        }
+        self.pauseStartInstant = nil
     }
 
     /// Toggle a card in the selection. Evaluates when the third card lands.
@@ -133,7 +178,7 @@ final class GameEngine {
     private func beginCelebration(_ cards: [Card]) {
         celebrationIDs = Set(cards.map(\.id))
         matchToken += 1
-        lastMatchDate = .now
+        lastMatchInstant = .now
         celebrationTask?.cancel()
         celebrationTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(Self.celebrationDuration))
@@ -167,17 +212,24 @@ final class GameEngine {
             isFinished = true
             // Clock the finish at the moment of the final match, not after
             // its celebration animation.
-            endDate = lastMatchDate ?? .now
+            endInstant = lastMatchInstant ?? .now
         }
     }
 
-    /// The physical game's rule: if the table has no valid set, deal 3 more
+    private func timeInterval(_ duration: Duration) -> TimeInterval {
+        let components = duration.components
+        return Double(components.seconds)
+            + Double(components.attoseconds) / 1_000_000_000_000_000_000
+    }
+
+    /// The physical game's rule: if the table has no valid set, deal three more
     /// (12 -> 15 -> ...), until one exists or the deck runs out.
     private func dealUntilSetAvailable() {
         while Card.findSet(in: table) == nil, !deck.isEmpty {
             let draw = min(3, deck.count)
             table.append(contentsOf: deck.prefix(draw))
             deck.removeFirst(draw)
+            dealToken += 1
         }
     }
 }

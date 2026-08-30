@@ -1,101 +1,109 @@
 import SwiftUI
 
-/// Multi-device party: every player holds their own phone. Opponents show as
-/// score chips up top; your buzz button sits at the bottom.
+/// Multi-device party: every player holds their own phone. Each player's
+/// collected-card deck is shown beside their player controls or summary.
 struct NetworkPartyGameView: View {
     let session: NetworkPartySession
     @State private var pileFrames = PileFrames()
     @State private var showExitConfirm = false
+    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     var onExit: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
-            opponentsRow
+        ZStack {
+            VStack(spacing: 10) {
+                opponentsRow
 
-            HStack {
-                Button {
-                    if session.isFinished || session.someoneLeft {
-                        exit()
-                    } else {
-                        showExitConfirm = true
+                adaptiveBoard
+
+                HStack(spacing: 12) {
+                    if let me = session.localPlayer {
+                        Text(me.name)
+                            .font(.headline.bold())
+                            .foregroundStyle(me.color)
+                            .frame(width: GameButtonStyle.Size.large.height)
                     }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+                    localBuzzButton
+                    if let me = session.localPlayer {
+                        PlayerDeckView(cardCount: me.cardCount, topCard: me.topCard)
+                    }
                 }
-                Spacer()
-                statusLabel
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-
-            BoardGridView(
-                table: session.table,
-                selectedIDs: session.selectedIDs,
-                mismatchIDs: session.mismatchIDs,
-                mismatchToken: session.mismatchToken,
-                celebrationIDs: session.celebrationIDs,
-                collectedCount: session.doneCount,
-                pileFrames: pileFrames,
-                isInteractive: session.activePlayerID == session.localID && !session.isFinished
-            ) { card in
-                session.selectLocal(card)
-            }
-            .overlay {
-                if let activeID = session.activePlayerID,
-                   let active = session.players.first(where: { $0.id == activeID }) {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(active.color, lineWidth: 3)
-                        .padding(-8)
-                        .allowsHitTesting(false)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                MismatchExplainer(
-                    reasons: session.mismatchReasons,
-                    token: session.mismatchToken
-                )
-                .padding(.bottom, 6)
-            }
-
-            HStack(spacing: 16) {
-                PilesView(
-                    deckCount: session.deckCount,
-                    doneCount: session.doneCount,
-                    doneTop: session.doneTop
-                )
-                localBuzzButton
             }
         }
         .padding()
         .coordinateSpace(name: "game")
         .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
-        .background(Color(.systemGroupedBackground))
+        .background(Appearance.shared.gameBackground)
+        .overlay(alignment: .topTrailing) {
+            exitButton.padding(4)
+        }
         .confirmationDialog("Leave the match?", isPresented: $showExitConfirm, titleVisibility: .visible) {
-            Button("Leave Match", role: .destructive) { exit() }
-            Button("Keep Playing", role: .cancel) {}
+            Button("Leave match", role: .destructive) { exit() }
+            Button("Keep playing", role: .cancel) {}
         } message: {
             Text("Leaving ends the match for everyone.")
         }
-        .sensoryFeedback(.success, trigger: session.matchToken)
-        .sensoryFeedback(.error, trigger: session.mismatchToken)
-        .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: session.activePlayerID)
-        .sensoryFeedback(.success, trigger: session.isFinished)
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.matchToken, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, oldValue.value != newValue.value else { return nil }
+            return .success
+        }
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.mismatchToken, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, oldValue.value != newValue.value else { return nil }
+            return .error
+        }
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.activePlayerID, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, oldValue.value != newValue.value, newValue.value != nil else { return nil }
+            return .impact(weight: .heavy, intensity: 0.9)
+        }
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: session.isFinished, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, !oldValue.value, newValue.value else { return nil }
+            return .success
+        }
+        .onChange(of: session.activePlayerID) { _, playerID in
+            if playerID != nil {
+                GameAudio.shared.play(.buzz)
+            }
+        }
+        .onChange(of: session.penaltyToken) { _, newToken in
+            if newToken > 0 {
+                GameAudio.shared.play(.penalty)
+            }
+        }
+        .onChange(of: session.isFinished) { _, finished in
+            if finished {
+                GameAudio.shared.play(.completion)
+            }
+        }
         .overlay {
             if session.someoneLeft {
                 endCard {
-                    Text("a player disconnected")
+                    Text("A player disconnected")
                         .font(.headline)
                 }
             } else if session.isFinished {
                 endCard(celebratory: true) {
                     let winners = session.winners
-                    Text(winners.count == 1 ? "\(winners[0].name) wins" : "draw")
+                    Text(winners.count == 1 ? "\(winners[0].name) wins" : "Tie game")
                         .font(.system(size: 30, weight: .black, design: .rounded))
                         .foregroundStyle(winners.count == 1 ? winners[0].color : .primary)
                     scoreList
                 }
+            }
+        }
+        .onAppear {
+            ESTTelemetry.record(.networkDuelStarted)
+        }
+        .onChange(of: session.isFinished) { _, finished in
+            if finished {
+                ESTTelemetry.record(.networkDuelCompleted)
             }
         }
         .onDisappear {
@@ -108,21 +116,89 @@ struct NetworkPartyGameView: View {
         onExit()
     }
 
+    private var activePlayer: NetworkPartySession.PlayerDisplay? {
+        guard let activeID = session.activePlayerID else { return nil }
+        return session.players.first { $0.id == activeID }
+    }
+
+    /// Keeps the card grid close to the player who claimed it. The outer
+    /// geometry is flexible, while the inner grid is only as tall as its
+    /// fitted cards require, so alignment can move it toward either side.
+    private var adaptiveBoard: some View {
+        GeometryReader { proxy in
+            let columns = 3
+            let gap: CGFloat = 10
+            let rows = max(1, Int(ceil(Double(session.table.count) / Double(columns))))
+            let horizontalSide = max(1, (proxy.size.width - CGFloat(columns - 1) * gap) / CGFloat(columns))
+            let verticalSide = max(1, (proxy.size.height - CGFloat(rows - 1) * gap) / CGFloat(rows))
+            let side = min(horizontalSide, verticalSide)
+            let width = CGFloat(columns) * side + CGFloat(columns - 1) * gap
+            let height = CGFloat(rows) * side + CGFloat(rows - 1) * gap
+            let alignment: Alignment = session.activePlayerID == session.localID
+                ? .bottom
+                : session.activePlayerID == nil ? .center : .top
+
+            boardView
+                .frame(width: width, height: height)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+        }
+        .frame(maxHeight: .infinity)
+        .animation(.spring(duration: 0.45), value: session.activePlayerID)
+    }
+
+    private var boardView: some View {
+        BoardGridView(
+            table: session.table,
+            selectedIDs: session.selectedIDs,
+            mismatchIDs: session.mismatchIDs,
+            mismatchToken: session.mismatchToken,
+            dealToken: session.dealToken,
+            celebrationIDs: session.celebrationIDs,
+            collectedCount: session.doneCount,
+            pileFrames: pileFrames,
+            isInteractive: session.activePlayerID == session.localID && !session.isFinished
+        ) { card in
+            session.selectLocal(card)
+        }
+        .overlay {
+            if let active = activePlayer {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(active.color, lineWidth: 3)
+                    .padding(-8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            MismatchExplainer(
+                reasons: session.mismatchReasons,
+                token: session.mismatchToken
+            )
+            .padding(.bottom, 6)
+        }
+    }
+
     private var opponentsRow: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { context in
             HStack(spacing: 8) {
                 ForEach(session.players.filter { $0.id != session.localID }) { player in
                     HStack(spacing: 6) {
-                        Circle().fill(player.color).frame(width: 10, height: 10)
-                        Text(player.name)
-                            .font(.caption.bold())
-                            .lineLimit(1)
-                        Text("\(player.score)")
-                            .font(.caption.monospacedDigit().bold())
-                        if player.isLocked(at: context.date) {
-                            Image(systemName: "hourglass")
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Circle().fill(player.color).frame(width: 10, height: 10)
+                                Text(player.name)
+                                    .font(.caption.bold())
+                                    .lineLimit(1)
+                                if player.isLocked(at: context.date) {
+                                    Image(systemName: "hourglass")
+                                        .font(.caption2)
+                                }
+                            }
+                            Text("Their cards")
                                 .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
+                        PlayerDeckView(cardCount: player.cardCount, topCard: player.topCard)
+                            .rotationEffect(.degrees(180))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -137,21 +213,6 @@ struct NetworkPartyGameView: View {
         }
     }
 
-    private var statusLabel: some View {
-        Group {
-            if let activeID = session.activePlayerID,
-               let active = session.players.first(where: { $0.id == activeID }) {
-                Text(activeID == session.localID ? "tap 3 cards!" : "\(active.name) is picking…")
-                    .font(.headline)
-                    .foregroundStyle(active.color)
-            } else {
-                Text("see one? buzz!")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
     private var localBuzzButton: some View {
         TimelineView(.periodic(from: .now, by: 0.05)) { context in
             let now = context.date
@@ -162,11 +223,12 @@ struct NetworkPartyGameView: View {
             let color = me?.color ?? .accentColor
 
             Button {
-                session.buzzLocal()
-            } label: {
+                    guard session.canBuzzLocally() else { return }
+                    session.buzzLocal()
+                } label: {
                 VStack(spacing: 2) {
-                    Text("\(me?.score ?? 0)")
-                        .font(.title2.monospacedDigit().bold())
+                    Text("SET")
+                        .font(.headline.bold())
                     if isActive, let deadline = session.claimDeadline {
                         let progress = max(0, deadline.timeIntervalSince(now) / PartySession.claimWindow)
                         GeometryReader { proxy in
@@ -179,13 +241,11 @@ struct NetworkPartyGameView: View {
                     } else if isLocked {
                         Image(systemName: "hourglass")
                             .font(.caption)
-                    } else {
-                        Text("EST!")
-                            .font(.headline.bold())
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 8)
+                .frame(height: GameButtonStyle.Size.large.height)
                 .glassButtonSurface(
                     tint: color,
                     opacity: isActive ? 1 : isLocked ? 0.25 : 0.85,

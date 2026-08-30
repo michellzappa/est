@@ -22,7 +22,7 @@ struct VaryingTitleView: View {
         }
         .task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2.4))
+                try? await Task.sleep(for: .seconds(7.2))
                 withAnimation(.spring(duration: 0.7)) {
                     index = (index + 1) % Self.permutations.count
                 }
@@ -47,11 +47,15 @@ struct TitleView: View {
     var onOnlineParty: () -> Void
 
     @State private var showRules = false
+    @State private var showPlayStyle = false
     @State private var showSettings = false
     @State private var demoCards = Card.randomValidSet()
 
     var body: some View {
-        VStack(spacing: 16) {
+        GeometryReader { proxy in
+            let supportsFourPlayerMode = PartySession.supportsFourPlayerMode(in: proxy.size)
+
+            VStack(spacing: 16) {
             Spacer()
 
             VaryingTitleView {
@@ -59,7 +63,10 @@ struct TitleView: View {
                     demoCards = Card.randomValidSet()
                 }
             }
-            Text("81 cards. every combination. find three\nwhere each trait is all same or all different.")
+            Text("A game of card patterns")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text("81 cards. Every combination. Find three where\nevery trait is all the same or all different.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
@@ -82,18 +89,49 @@ struct TitleView: View {
                     .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
                 }
 
-                Button {
-                    onParty(2)
-                } label: {
-                    Label("Duel, one phone", systemImage: "person.2.fill")
+                if supportsFourPlayerMode {
+                    HStack(spacing: 12) {
+                        Button {
+                            onParty(PartySession.minimumPlayerCount)
+                        } label: {
+                            Label("Duel, one phone", systemImage: "person.2.fill")
+                        }
+                        .buttonStyle(.game(.secondary, tint: .red, size: .large))
+
+                        Button {
+                            onParty(PartySession.maximumPlayerCount)
+                        } label: {
+                                Label(
+                                "\(PartySession.maximumPlayerCount) players, \(PartySession.fourPlayerDeviceLabel)",
+                                systemImage: "person.3.fill"
+                            )
+                        }
+                        .buttonStyle(.game(.secondary, tint: .yellow, size: .large))
+                    }
+                } else {
+                    Button {
+                        onParty(PartySession.minimumPlayerCount)
+                    } label: {
+                        Label("Duel, one phone", systemImage: "person.2.fill")
+                    }
+                    .buttonStyle(.game(.secondary, tint: .red))
                 }
-                .buttonStyle(.game(.secondary, tint: .red))
 
                 Button(action: onOnlineParty) {
-                    Label("Duel, online or nearby", systemImage: "antenna.radiowaves.left.and.right")
+                    Label(
+                        supportsFourPlayerMode ? "Party, online or nearby" : "Duel, online or nearby",
+                        systemImage: "antenna.radiowaves.left.and.right"
+                    )
                 }
                 .buttonStyle(.game(.secondary, tint: .red))
                 .disabled(!GameCenterManager.shared.isAuthenticated)
+
+                Button {
+                    showPlayStyle = true
+                } label: {
+                    Label("Your play style", systemImage: "chart.bar.xaxis")
+                }
+                .buttonStyle(.game(.quiet, tint: .blue, size: .compact))
 
                 HStack(spacing: 12) {
                     Button {
@@ -121,32 +159,91 @@ struct TitleView: View {
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
+            }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Appearance.shared.gameBackground)
         .sheet(isPresented: $showRules) {
             RulesView()
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
-        .onAppear {
-            GameCenterManager.shared.setAccessPointVisible(true)
-        }
-        .onDisappear {
-            GameCenterManager.shared.setAccessPointVisible(false)
+        .sheet(isPresented: $showPlayStyle) {
+            PlayStyleView()
         }
     }
 
     /// Always a valid EST, re-rolled on the same beat as the name shuffle.
     private var demoRow: some View {
         HStack(spacing: 12) {
-            ForEach(demoCards) { card in
-                CardView(card: card)
-                    .transition(.scale(scale: 0.7).combined(with: .opacity))
-                    .id(card.id)
+            // Keep each physical position stable. The cards are shuffled as a
+            // set, but the animation belongs to each of these three slots.
+            ForEach(0..<3, id: \.self) { index in
+                DemoCardSlot(card: demoCards[index])
             }
         }
         .frame(height: 84)
+    }
+}
+
+private struct DemoCardSlot: View {
+    let card: Card
+
+    @State private var displayedCard: Card
+    @State private var angle: Double = 0
+
+    init(card: Card) {
+        self.card = card
+        _displayedCard = State(initialValue: card)
+    }
+
+    var body: some View {
+        ZStack {
+            CardView(card: displayedCard)
+                .rotation3DEffect(
+                    .degrees(angle),
+                    axis: (x: 0, y: 1, z: 0),
+                    perspective: 0.65
+                )
+
+            if edgeOpacity > 0 {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(Appearance.shared.theme.cardBorder)
+                    .frame(width: 2, height: 84)
+                    .opacity(edgeOpacity)
+            }
+        }
+            .task(id: card.id) {
+                guard displayedCard.id != card.id else { return }
+                await flip(to: card)
+            }
+    }
+
+    private var edgeOpacity: Double {
+        let distanceFromFace = abs(angle)
+        guard distanceFromFace > 72 else { return 0 }
+        return min(1, (distanceFromFace - 72) / 18)
+    }
+
+    @MainActor
+    private func flip(to newCard: Card) async {
+        withAnimation(.easeInOut(duration: 0.32)) {
+            angle = 90
+        }
+
+        try? await Task.sleep(for: .seconds(0.32))
+        guard !Task.isCancelled else { return }
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            displayedCard = newCard
+            angle = -90
+        }
+
+        withAnimation(.easeInOut(duration: 0.32)) {
+            angle = 0
+        }
     }
 }
 
@@ -157,65 +254,111 @@ struct RulesView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Button {
-                        showTutorial = true
-                    } label: {
-                        Label("Walk me through it", systemImage: "graduationcap")
-                    }
-                    .buttonStyle(.game(.primary, tint: .blue, size: .large))
+                VStack(alignment: .leading, spacing: 20) {
+                    intro
 
-                    Text("A guided tour with worked examples and a practice board. The text below is the short reference.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    rulesSection(
+                        "Learn the rule",
+                        "Start here if you are new to EST."
+                    ) {
+                        Button {
+                            showTutorial = true
+                        } label: {
+                            Label("Walk me through it", systemImage: "graduationcap")
+                        }
+                        .buttonStyle(.game(.primary, tint: .blue, size: .large))
 
-                    ruleBlock(
-                        "The deck",
-                        "81 cards: every combination of four traits. Count (1, 2, 3), color (red, blue, yellow), shape (circle, square, triangle), and fill (solid, translucent, outline)."
-                    )
-                    ruleBlock(
-                        "A valid set",
-                        "Three cards where each of the four traits is either the same on all three cards or different on all three. One trait two-and-one? Not a set."
-                    )
-                    ruleBlock(
-                        "The table",
-                        "12 cards face up. If no set exists among them, 3 more are dealt automatically. Find one, tap its three cards, and replacements are dealt."
-                    )
-                    ruleBlock(
-                        "Solo",
-                        "Clear the whole deck as fast as you can. Your time goes to the Game Center leaderboard."
-                    )
-                    ruleBlock(
-                        "Party",
-                        "Pass-around play on one phone, or across phones over Game Center. See a set? Hit your button first and you get \(Int(PartySession.claimWindow)) seconds to tap the three cards. Miss or time out: lose a point and sit out briefly."
-                    )
-                    NavigationLink {
-                        MathVisualizerView()
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "function")
-                                .font(.title3)
-                                .frame(width: 28)
-                                .foregroundStyle(Card.Tint.blue.color)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("The mathematics")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("Cards are points. Sets are lines. Explore the four-trit structure.")
-                                    .font(.footnote)
+                        NavigationLink {
+                            MathVisualizerView()
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "function")
+                                    .font(.title3)
+                                    .frame(width: 28)
+                                    .foregroundStyle(Card.Tint.blue.color)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("The mathematics")
+                                        .font(.subheadline.weight(.semibold))
+                                    Text("Cards are points. Sets are lines. Explore the four-trit structure.")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
                                     .foregroundStyle(.secondary)
                             }
-                            Spacer(minLength: 0)
+                            .padding(12)
+                            .glassButtonSurface(
+                                tint: Card.Tint.blue.color,
+                                opacity: 0.10,
+                                cornerRadius: 14
+                            )
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    ruleBlock(
-                        "About",
-                        "EST is free and open source, made in the spirit of SET, the card game Marsha Falco invented in 1974. We love the original and give copies away often. If you have never played it, buy one. EST is not affiliated with, sponsored by, or endorsed by SET's makers. SET is a registered trademark of Cannei, LLC."
-                    )
+
+                    rulesSection(
+                        "Choose a mode",
+                        "Pick a game and start playing."
+                    ) {
+                        ruleRow(
+                            "timer",
+                            "Solo 81",
+                            "Clear all 81 cards against the clock. Your best time can go to Game Center."
+                        )
+                        ruleRow(
+                            "bolt.fill",
+                            "Quick 27",
+                            "Play the 27 solid cards for a shorter, faster round."
+                        )
+                        ruleRow(
+                            "person.2.fill",
+                            "Duel",
+                            "Play pass-around on one phone, or live across phones over Game Center."
+                        )
+                    }
+
+                    rulesSection(
+                        "How the game works",
+                        "The same rule applies in every mode."
+                    ) {
+                        ruleRow(
+                            "square.grid.3x3.fill",
+                            "The deck",
+                            "81 cards cover every combination of count, color, shape, and fill. Each trait has three values."
+                        )
+                        ruleRow(
+                            "checkmark.circle",
+                            "A valid set",
+                            "Three cards work when every trait is either the same on all three or different on all three. Two and one never works."
+                        )
+                        ruleRow(
+                            "rectangle.3.group",
+                            "The table",
+                            "Start with 12 cards. Tap three that form a set. If none exists, three more cards appear automatically."
+                        )
+                        ruleRow(
+                            "hand.tap",
+                            "In a duel",
+                            "Buzz first, then tap the three cards within \(Int(PartySession.claimWindow)) seconds. A miss costs a point and a short lockout."
+                        )
+                    }
+
+                    rulesSection(
+                        "About EST",
+                        "A free game built around the structure of its deck."
+                    ) {
+                        Text("EST is a free, open-source iPhone game inspired by SET, the card game Marsha Falco created in 1974. It has its own name, artwork, and code, and is not affiliated with or endorsed by SET's makers. SET is a registered trademark of Cannei, LLC.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 28)
             }
+            .background(Appearance.shared.gameBackground.ignoresSafeArea())
             .navigationTitle("How to play")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -229,13 +372,50 @@ struct RulesView: View {
         }
     }
 
-    private func ruleBlock(_ title: String, _ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.headline)
-            Text(text)
+    private var intro: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Learn the rule, then play it")
+                .font(.title2.bold())
+            Text("A quick guide to the game, its modes, and the idea underneath all 81 cards.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func rulesSection<Content: View>(
+        _ title: String,
+        _ subtitle: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.title3.bold())
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            content()
+        }
+        .padding(16)
+        .glassPanel(cornerRadius: 22)
+    }
+
+    private func ruleRow(_ icon: String, _ title: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .frame(width: 28)
+                .foregroundStyle(Card.Tint.blue.color)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(text)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

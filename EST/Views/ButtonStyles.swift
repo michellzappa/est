@@ -70,6 +70,7 @@ struct GameButtonStyle: ButtonStyle {
         let size: Size
 
         @Environment(\.isEnabled) private var isEnabled
+        @AppStorage("hapticsEnabled") private var hapticsEnabled = true
 
         private var cornerRadius: CGFloat { size.height * 0.32 }
         private var shape: RoundedRectangle {
@@ -103,8 +104,11 @@ struct GameButtonStyle: ButtonStyle {
                 .scaleEffect(pressed ? 0.96 : 1)
                 .opacity(isEnabled ? 1 : 0.35)
                 .animation(.spring(duration: 0.22), value: pressed)
-                .sensoryFeedback(trigger: pressed) { _, isPressed in
-                    isPressed ? .impact(flexibility: .soft, intensity: 0.4) : nil
+                .sensoryFeedback(
+                    trigger: FeedbackTrigger(value: pressed, enabled: hapticsEnabled)
+                ) { oldValue, newValue in
+                    guard newValue.enabled, !oldValue.value, newValue.value else { return nil }
+                    return .impact(flexibility: .soft, intensity: 0.4)
                 }
         }
 

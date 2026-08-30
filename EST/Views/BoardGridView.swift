@@ -12,6 +12,7 @@ struct BoardGridView: View {
     let selectedIDs: Set<Int>
     let mismatchIDs: Set<Int>
     let mismatchToken: Int
+    let dealToken: Int
     var celebrationIDs: Set<Int> = []
     var hintedIDs: Set<Int> = []
     var collectedCount = 0
@@ -21,15 +22,17 @@ struct BoardGridView: View {
 
     init(
         engine: GameEngine,
+        selectedIDsOverride: Set<Int>? = nil,
         hintedIDs: Set<Int> = [],
         pileFrames: PileFrames = PileFrames(),
         isInteractive: Bool = true,
         onTap: @escaping (Card) -> Void
     ) {
         self.table = engine.table
-        self.selectedIDs = Set(engine.selection.map(\.id))
+        self.selectedIDs = selectedIDsOverride ?? Set(engine.selection.map(\.id))
         self.mismatchIDs = engine.lastMismatch
         self.mismatchToken = engine.mismatchToken
+        self.dealToken = engine.dealToken
         self.celebrationIDs = engine.celebrationIDs
         self.hintedIDs = hintedIDs
         self.collectedCount = engine.done.count
@@ -43,6 +46,7 @@ struct BoardGridView: View {
         selectedIDs: Set<Int>,
         mismatchIDs: Set<Int>,
         mismatchToken: Int,
+        dealToken: Int = 0,
         celebrationIDs: Set<Int> = [],
         collectedCount: Int = 0,
         pileFrames: PileFrames = PileFrames(),
@@ -53,6 +57,7 @@ struct BoardGridView: View {
         self.selectedIDs = selectedIDs
         self.mismatchIDs = mismatchIDs
         self.mismatchToken = mismatchToken
+        self.dealToken = dealToken
         self.celebrationIDs = celebrationIDs
         self.collectedCount = collectedCount
         self.pileFrames = pileFrames
@@ -64,6 +69,8 @@ struct BoardGridView: View {
 
     @State private var flights: [DepartureFlight] = []
     @State private var departureOrigins: [DepartureOrigin] = []
+    @State private var playedOpeningDeal = false
+    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     /// The opening deal flips in generically; only later cards fly from the
     /// pile (its frame is not known during the very first layout anyway).
     @State private var pastInitialDeal = false
@@ -127,6 +134,11 @@ struct BoardGridView: View {
                                     .frame(width: side, height: side)
                                     .onTapGesture {
                                         guard isInteractive else { return }
+                                        if selectedIDs.contains(card.id) {
+                                            GameAudio.shared.play(.cardDeselected)
+                                        } else {
+                                            GameAudio.shared.play(.cardSelected(step: selectedIDs.count + 1))
+                                        }
                                         onTap(card)
                                     }
                                     .transition(.identity)
@@ -148,6 +160,7 @@ struct BoardGridView: View {
             }
             .onChange(of: celebrationIDs) { _, ids in
                 guard !ids.isEmpty else { return }
+                GameAudio.shared.play(.validSet)
                 // Remember where the matched cards sit; by the time they move
                 // to the done pile they are no longer on the table.
                 departureOrigins = table.indices.compactMap { index in
@@ -163,6 +176,14 @@ struct BoardGridView: View {
                         )
                     )
                 }
+            }
+            .onChange(of: mismatchToken) { _, newToken in
+                guard newToken > 0 else { return }
+                GameAudio.shared.play(.mismatch)
+            }
+            .onChange(of: dealToken) { oldToken, newToken in
+                guard newToken > oldToken else { return }
+                GameAudio.shared.play(.deal)
             }
             .onChange(of: collectedCount) { oldCount, newCount in
                 guard newCount > oldCount, let doneLocal, !departureOrigins.isEmpty else {
@@ -186,8 +207,17 @@ struct BoardGridView: View {
                 }
             }
         }
-        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: table)
+        .sensoryFeedback(
+            trigger: FeedbackTrigger(value: table, enabled: hapticsEnabled)
+        ) { oldValue, newValue in
+            guard newValue.enabled, oldValue.value != newValue.value else { return nil }
+            return .impact(flexibility: .soft, intensity: 0.6)
+        }
         .onAppear {
+            if !table.isEmpty, !playedOpeningDeal {
+                playedOpeningDeal = true
+                GameAudio.shared.play(.deal)
+            }
             Task {
                 try? await Task.sleep(for: .seconds(1.5))
                 pastInitialDeal = true
@@ -238,7 +268,7 @@ struct MismatchExplainer: View {
         Group {
             if visibleToken == token, token > 0, !reasons.isEmpty {
                 VStack(spacing: 3) {
-                    Text("not a set")
+                    Text("Not a set")
                         .font(.caption.bold())
                         .textCase(.uppercase)
                     ForEach(reasons, id: \.self) { reason in
@@ -281,6 +311,7 @@ private struct CardCell: View {
     var dealVector: CGSize? = nil
 
     @State private var dealt = false
+    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     /// Local shake progress. Bumped by exactly 1 per mismatch this card is
     /// part of, so cards from earlier mismatches stay still.
     @State private var shakes: CGFloat = 0
@@ -326,6 +357,11 @@ private struct CardCell: View {
                     dealt = true
                 }
             }
-            .sensoryFeedback(.selection, trigger: isSelected)
+            .sensoryFeedback(
+                trigger: FeedbackTrigger(value: isSelected, enabled: hapticsEnabled)
+            ) { oldValue, newValue in
+                guard newValue.enabled, !oldValue.value, newValue.value else { return nil }
+                return .selection
+            }
     }
 }

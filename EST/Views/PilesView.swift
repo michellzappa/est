@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Where the draw and done piles sit on screen, measured in the "game"
-/// coordinate space. The board uses these to fly cards to and from the piles.
+/// Where the deck and played-card piles sit on screen, measured in the "game"
+/// coordinate space. The board uses these frames to animate cards to and from
+/// the piles.
 struct PileFrames: Equatable {
     var draw: CGRect?
     var done: CGRect?
@@ -51,7 +52,7 @@ struct PilesView: View {
     var body: some View {
         HStack(spacing: 14) {
             PileStack(
-                label: "pile",
+                label: "deck",
                 count: deckCount,
                 topFace: nil
             )
@@ -71,7 +72,7 @@ struct PilesView: View {
             )
             .frame(maxWidth: .infinity)
             PileStack(
-                label: "done",
+                label: "played",
                 count: doneCount,
                 topFace: doneTop
             )
@@ -87,8 +88,40 @@ struct PilesView: View {
     }
 }
 
-/// The linear read on where the game stands: cards flow left to right —
-/// colored = done, faint = on the table, empty track = still in the deck.
+/// A player's collected cards. Unlike the shared draw/played piles, this is
+/// personal progress and belongs beside that player's SET button in a party.
+struct PlayerDeckView: View {
+    let cardCount: Int
+    let topCard: Card?
+
+    var body: some View {
+        ZStack {
+            PileStack(
+                label: "cards",
+                count: cardCount,
+                topFace: topCard,
+                showsMetadata: false
+            )
+
+            VStack(spacing: 0) {
+                Text("\(cardCount)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                Text("CARDS")
+                    .font(.system(size: 7, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 3)
+            .padding(.vertical, 2)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+        .frame(width: GameButtonStyle.Size.large.height, height: GameButtonStyle.Size.large.height)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(cardCount) cards collected")
+    }
+}
+
+/// The progress bar shows cards moving from the deck to the table and then to
+/// the played pile.
 struct DeckProgressBar: View {
     let deckCount: Int
     let doneCount: Int
@@ -129,7 +162,7 @@ struct DeckProgressBar: View {
             .animation(.spring(duration: 0.5), value: doneCount)
             .animation(.spring(duration: 0.5), value: deckCount)
 
-            Text("\(doneCount / 3) of \(totalCards / 3)" + (setsOnTable.map { " · \($0) in view" } ?? ""))
+            Text("\(doneCount / 3) of \(totalCards / 3)" + (setsOnTable.map { " · \($0) on table" } ?? ""))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
@@ -144,6 +177,7 @@ struct PileStack: View {
     let label: String
     let count: Int
     let topFace: Card?
+    var showsMetadata = true
 
     private var side: CGFloat { Self.cardSide }
 
@@ -170,12 +204,14 @@ struct PileStack: View {
             .frame(width: side + 8, height: side + 8)
             .animation(.spring(duration: 0.35), value: count)
 
-            Text("\(count)")
-                .font(.headline.monospacedDigit())
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+            if showsMetadata {
+                Text("\(count)")
+                    .font(.headline.monospacedDigit())
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+            }
         }
     }
 

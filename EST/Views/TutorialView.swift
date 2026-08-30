@@ -39,7 +39,7 @@ struct TutorialView: View {
             }
             footer
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Appearance.shared.gameBackground)
     }
 
     // MARK: - Chrome
@@ -68,7 +68,7 @@ struct TutorialView: View {
     private var footer: some View {
         VStack(spacing: 8) {
             if step == 4, !practiceSolved {
-                Text("find the set to continue, or use the hint")
+                Text("Find the set to continue, or use a hint.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -127,13 +127,13 @@ struct TutorialView: View {
 
             cardRow(validExample)
 
-            Text("these three are a set")
+            Text("These three make a set")
                 .font(.caption)
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
 
-            paragraph("Every card carries four traits. Three cards form a set when each trait is the same on all three cards, or different on all three. Nothing in between.")
-            paragraph("That is the whole game. The next screens take it one piece at a time.")
+            paragraph("Every card carries four traits. Three cards form a set when each trait is the same on all three cards or different on all three. There is no middle case.")
+            paragraph("That is the rule. The next few steps unpack it.")
         }
     }
 
@@ -170,7 +170,7 @@ struct TutorialView: View {
 
     private var validStep: some View {
         VStack(spacing: 18) {
-            heading("A set passes on all four", "Check the traits one at a time. Every one must be all same or all different.")
+            heading("A set passes all four checks", "Check the traits one at a time. Each one must be all the same or all different.")
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             cardRow(validExample)
@@ -179,7 +179,7 @@ struct TutorialView: View {
                 .padding(16)
                 .glassPanel(cornerRadius: 18)
 
-            paragraph("Four passes, so this is a set. In the game you would tap these three cards and collect them.")
+            paragraph("All four pass, so these cards make a set. In a game, tap them to collect them.")
 
             rerollButton("Another example") {
                 validExample = Card.randomValidSet()
@@ -189,7 +189,7 @@ struct TutorialView: View {
 
     private var nearMissStep: some View {
         VStack(spacing: 18) {
-            heading("One broken trait is enough", "These three cards look close. Run the same four checks.")
+            heading("One failed trait is enough", "These cards look close, but one trait fails. Check them the same way as before.")
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             cardRow(nearMissExample)
@@ -199,7 +199,7 @@ struct TutorialView: View {
                 .glassPanel(cornerRadius: 18)
 
             paragraph("A trait can only fail one way: two cards agree and the third does not. Two and one is never a set.")
-            paragraph("The game shows you this same line whenever a pick fails, so you always learn why.")
+            paragraph("The game shows this message whenever a pick fails, so you can see why.")
 
             rerollButton("Another example") {
                 nearMissExample = Card.nearMissTrio()
@@ -233,10 +233,10 @@ struct TutorialView: View {
             .animation(.spring(duration: 0.25), value: practiceSelection)
 
             if practiceSolved {
-                Text("that is a set")
+                Text("That is a set")
                     .font(.headline)
                     .textCase(.uppercase)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Appearance.shared.successColor)
             }
 
             if practiceVerdict.count == 3 {
@@ -253,15 +253,15 @@ struct TutorialView: View {
 
     private var tableStep: some View {
         VStack(alignment: .leading, spacing: 20) {
-            heading("At the table", "The rules of the board, once you are playing for real.")
+            heading("At the table", "These are the board rules.")
 
-            ruleRow("square.grid.3x3", "12 cards face up", "The table starts with 12 cards. Tap three to claim a set. Replacements are dealt in their place.")
-            ruleRow("plus.rectangle.on.rectangle", "No set on the table?", "The game deals 3 more cards, and keeps dealing until a set exists. You never have to ask for them.")
-            ruleRow("timer", "Solo 81", "Clear the whole deck against the clock. Your time goes to the leaderboard. Hints are allowed, but a hinted run stays off it.")
-            ruleRow("bolt.fill", "Quick 27", "Only the 27 solid cards. The fill trait never changes, so you check three traits instead of four. The best place to start.")
-            ruleRow("person.2.fill", "Duel", "Two players, one phone or two. Hit your button first, then you have \(Int(PartySession.claimWindow)) seconds to tap the three cards. Miss and you lose a point and sit out briefly.")
+            ruleRow("square.grid.3x3", "Start with 12 cards", "Tap three that make a set. Replacements take their place.")
+            ruleRow("plus.rectangle.on.rectangle", "No set on the table?", "The game deals three more cards until a set appears.")
+            ruleRow("timer", "Solo 81", "Clear the deck against the clock. Hints keep the run off the leaderboard.")
+            ruleRow("bolt.fill", "Quick 27", "Play the 27 solid cards. The fill never changes, so you check three traits.")
+            ruleRow("person.2.fill", "Duel", "On one phone or two, buzz first and then tap the three cards within \(Int(PartySession.claimWindow)) seconds. Miss and you lose a point and sit out briefly.")
 
-            paragraph("The deck holds every combination exactly once, so the last cards are never a mystery: they are whatever nobody claimed.")
+            paragraph("At the end, the remaining cards are simply the ones nobody claimed.")
         }
     }
 
@@ -405,7 +405,7 @@ struct TraitAuditView: View {
                 ForEach(Card.audit(cards[0], cards[1], cards[2])) { verdict in
                     HStack(spacing: 10) {
                         Image(systemName: verdict.isValid ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(verdict.isValid ? Color.green : Color.red)
+                            .foregroundStyle(verdict.isValid ? Appearance.shared.successColor : Appearance.shared.errorColor)
                         Text(verdict.label)
                             .font(.subheadline.weight(.semibold))
                             .frame(width: 46, alignment: .leading)
@@ -417,7 +417,7 @@ struct TraitAuditView: View {
                         Spacer(minLength: 6)
                         Text(verdict.outcomeName)
                             .font(.caption)
-                            .foregroundStyle(verdict.isValid ? Color.secondary : Color.red)
+                            .foregroundStyle(verdict.isValid ? Color.secondary : Appearance.shared.errorColor)
                     }
                 }
             }
