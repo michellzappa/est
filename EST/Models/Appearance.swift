@@ -149,7 +149,10 @@ final class Appearance {
     }
 
     private init() {
-        fillStyle = FillStyle(rawValue: UserDefaults.standard.integer(forKey: "appearance.fillStyle")) ?? .shaded
+        // New installs get pinstriped. An explicit choice still wins, so a
+        // player who picked shaded keeps it.
+        let storedFill = UserDefaults.standard.object(forKey: "appearance.fillStyle") as? Int
+        fillStyle = storedFill.flatMap(FillStyle.init(rawValue:)) ?? .pinstriped
         theme = Theme(rawValue: UserDefaults.standard.integer(forKey: "appearance.theme")) ?? .primary
     }
 }

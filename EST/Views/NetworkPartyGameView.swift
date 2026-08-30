@@ -25,7 +25,10 @@ struct NetworkPartyGameView: View {
                     }
                     localBuzzButton
                     if let me = session.localPlayer {
-                        PlayerDeckView(cardCount: me.cardCount, topCard: me.topCard)
+                        PlayerDeckView(
+                            cardCount: me.cardCount,
+                            frameID: "player-\(me.id)"
+                        )
                     }
                 }
             }
@@ -116,6 +119,20 @@ struct NetworkPartyGameView: View {
         onExit()
     }
 
+    private var exitButton: some View {
+        Button {
+            if session.isFinished || session.someoneLeft {
+                exit()
+            } else {
+                showExitConfirm = true
+            }
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var activePlayer: NetworkPartySession.PlayerDisplay? {
         guard let activeID = session.activePlayerID else { return nil }
         return session.players.first { $0.id == activeID }
@@ -155,6 +172,7 @@ struct NetworkPartyGameView: View {
             dealToken: session.dealToken,
             celebrationIDs: session.celebrationIDs,
             collectedCount: session.doneCount,
+            collectionTargetID: session.lastCollectorID.map { "player-\($0)" },
             pileFrames: pileFrames,
             isInteractive: session.activePlayerID == session.localID && !session.isFinished
         ) { card in
@@ -197,7 +215,10 @@ struct NetworkPartyGameView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
-                        PlayerDeckView(cardCount: player.cardCount, topCard: player.topCard)
+                        PlayerDeckView(
+                            cardCount: player.cardCount,
+                            frameID: "player-\(player.id)"
+                        )
                             .rotationEffect(.degrees(180))
                     }
                     .padding(.horizontal, 10)

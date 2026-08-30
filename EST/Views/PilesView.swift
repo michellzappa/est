@@ -6,6 +6,17 @@ import SwiftUI
 struct PileFrames: Equatable {
     var draw: CGRect?
     var done: CGRect?
+    var cardBoxes: [String: CGRect]
+
+    init(
+        draw: CGRect? = nil,
+        done: CGRect? = nil,
+        cardBoxes: [String: CGRect] = [:]
+    ) {
+        self.draw = draw
+        self.done = done
+        self.cardBoxes = cardBoxes
+    }
 }
 
 struct PileFramesKey: PreferenceKey {
@@ -15,6 +26,7 @@ struct PileFramesKey: PreferenceKey {
         let next = nextValue()
         if let draw = next.draw { value.draw = draw }
         if let done = next.done { value.done = done }
+        value.cardBoxes.merge(next.cardBoxes) { _, new in new }
     }
 }
 
@@ -92,16 +104,17 @@ struct PilesView: View {
 /// personal progress and belongs beside that player's SET button in a party.
 struct PlayerDeckView: View {
     let cardCount: Int
-    let topCard: Card?
+    var frameID: String? = nil
+    private let side = GameButtonStyle.Size.large.height
 
     var body: some View {
         ZStack {
-            PileStack(
-                label: "cards",
-                count: cardCount,
-                topFace: topCard,
-                showsMetadata: false
-            )
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(
+                    Color.primary.opacity(0.2),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+                )
+                .frame(width: side, height: side)
 
             VStack(spacing: 0) {
                 Text("\(cardCount)")
@@ -114,7 +127,19 @@ struct PlayerDeckView: View {
             .padding(.vertical, 2)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
         }
-        .frame(width: GameButtonStyle.Size.large.height, height: GameButtonStyle.Size.large.height)
+        .frame(width: side, height: side)
+        .background {
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: PileFramesKey.self,
+                    value: PileFrames(
+                        cardBoxes: frameID.map {
+                            [$0: geo.frame(in: .named("game"))]
+                        } ?? [:]
+                    )
+                )
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(cardCount) cards collected")
     }

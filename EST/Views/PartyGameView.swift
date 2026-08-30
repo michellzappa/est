@@ -40,7 +40,9 @@ struct PartyGameView: View {
         .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
         .background(Appearance.shared.gameBackground)
         .overlay(alignment: .topTrailing) {
-            exitButton.padding(4)
+            exitButton
+                .padding(.top, usesFourPlayerLayout ? 16 : 4)
+                .padding(.trailing, usesFourPlayerLayout ? 16 : 4)
         }
         .confirmationDialog("End this game?", isPresented: $showExitConfirm, titleVisibility: .visible) {
             Button("End game", role: .destructive) { onExit() }
@@ -200,6 +202,7 @@ struct PartyGameView: View {
     private var gameBoard: some View {
         BoardGridView(
             engine: session.engine,
+            collectionTargetID: session.lastCollectorID.map { "player-\($0)" },
             pileFrames: pileFrames,
             isInteractive: session.activePlayerID != nil && !session.engine.isFinished
         ) { card in
@@ -232,8 +235,9 @@ struct PartyGameView: View {
         } label: {
             Image(systemName: "xmark.circle.fill")
                 .font(.title3)
-                .foregroundStyle(.secondary)
         }
+        .buttonStyle(.game(.quiet, tint: .red, size: .icon))
+        .accessibilityLabel("End game")
     }
 
     private func playerRow(_ players: [PartySession.Player], flipped: Bool) -> some View {
@@ -245,7 +249,7 @@ struct PartyGameView: View {
                         .frame(maxWidth: .infinity)
                     PlayerDeckView(
                         cardCount: player.cardCount,
-                        topCard: player.topCard
+                        frameID: "player-\(player.id)"
                     )
                 }
                 .frame(maxWidth: .infinity)
@@ -264,10 +268,15 @@ struct PartyGameView: View {
         let seatThickness = GameButtonStyle.Size.large.height
         let seatLength = buttonWidth + seatThickness * 2 + 8 * 2
         return HStack(spacing: 8) {
-            playerName(player)
+            // The label and deck reserve identical space, placing SET at the
+            // exact center of this player's edge of the table.
+            playerName(player, metadataWidth: seatThickness)
             BuzzButton(session: session, playerID: player.id)
                 .frame(width: buttonWidth)
-            PlayerDeckView(cardCount: player.cardCount, topCard: player.topCard)
+            PlayerDeckView(
+                cardCount: player.cardCount,
+                frameID: "player-\(player.id)"
+            )
         }
         .frame(width: seatLength, height: seatThickness)
         .rotationEffect(rotation)
@@ -280,13 +289,14 @@ struct PartyGameView: View {
         )
     }
 
-    private func playerName(_ player: PartySession.Player) -> some View {
+    private func playerName(
+        _ player: PartySession.Player,
+        metadataWidth: CGFloat = 34
+    ) -> some View {
         Text(player.name)
             .font(.headline.bold())
             .foregroundStyle(player.color)
-            // Match the deck's footprint so the SET button stays precisely
-            // centered between its two pieces of player metadata.
-            .frame(width: GameButtonStyle.Size.large.height)
+            .frame(width: metadataWidth)
     }
 }
 

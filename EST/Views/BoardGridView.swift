@@ -5,8 +5,8 @@ import SwiftUI
 /// Takes plain values so it renders local engines and remote snapshots alike.
 ///
 /// When the hosting screen provides pile frames (measured in a "game"
-/// coordinate space via `PileFramesKey`), matched cards fly to the done pile
-/// and replacements fly in from the draw pile.
+/// coordinate space via `PileFramesKey`), matched cards fly to the collector's
+/// card box and replacements flip into their existing table slots.
 struct BoardGridView: View {
     let table: [Card]
     let selectedIDs: Set<Int>
@@ -16,6 +16,7 @@ struct BoardGridView: View {
     var celebrationIDs: Set<Int> = []
     var hintedIDs: Set<Int> = []
     var collectedCount = 0
+    var collectionTargetID: String?
     var pileFrames = PileFrames()
     var isInteractive = true
     var onTap: (Card) -> Void
@@ -24,6 +25,7 @@ struct BoardGridView: View {
         engine: GameEngine,
         selectedIDsOverride: Set<Int>? = nil,
         hintedIDs: Set<Int> = [],
+        collectionTargetID: String? = nil,
         pileFrames: PileFrames = PileFrames(),
         isInteractive: Bool = true,
         onTap: @escaping (Card) -> Void
@@ -36,6 +38,7 @@ struct BoardGridView: View {
         self.celebrationIDs = engine.celebrationIDs
         self.hintedIDs = hintedIDs
         self.collectedCount = engine.done.count
+        self.collectionTargetID = collectionTargetID
         self.pileFrames = pileFrames
         self.isInteractive = isInteractive
         self.onTap = onTap
@@ -49,6 +52,7 @@ struct BoardGridView: View {
         dealToken: Int = 0,
         celebrationIDs: Set<Int> = [],
         collectedCount: Int = 0,
+        collectionTargetID: String? = nil,
         pileFrames: PileFrames = PileFrames(),
         isInteractive: Bool = true,
         onTap: @escaping (Card) -> Void
@@ -60,6 +64,7 @@ struct BoardGridView: View {
         self.dealToken = dealToken
         self.celebrationIDs = celebrationIDs
         self.collectedCount = collectedCount
+        self.collectionTargetID = collectionTargetID
         self.pileFrames = pileFrames
         self.isInteractive = isInteractive
         self.onTap = onTap
@@ -67,13 +72,16 @@ struct BoardGridView: View {
 
     private let gap: CGFloat = 10
 
+    /// Ceiling on one card. Without it a solo or duel table on iPad grows a
+    /// card to the full third of the screen width, which reads as a different
+    /// game from the four-seat table. The cap keeps every mode at a similar
+    /// card size; smaller windows still scale down below it.
+    static let maximumCardSide: CGFloat = 150
+
     @State private var flights: [DepartureFlight] = []
     @State private var departureOrigins: [DepartureOrigin] = []
     @State private var playedOpeningDeal = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
-    /// The opening deal flips in generically; only later cards fly from the
-    /// pile (its frame is not known during the very first layout anyway).
-    @State private var pastInitialDeal = false
 
     private struct DepartureOrigin: Equatable {
         let card: Card
@@ -85,8 +93,11 @@ struct BoardGridView: View {
             let columns = 3
             let rows = max(1, Int(ceil(Double(table.count) / Double(columns))))
             let side = min(
-                (proxy.size.width - CGFloat(columns - 1) * gap) / CGFloat(columns),
-                (proxy.size.height - CGFloat(rows - 1) * gap) / CGFloat(rows)
+                min(
+                    (proxy.size.width - CGFloat(columns - 1) * gap) / CGFloat(columns),
+                    (proxy.size.height - CGFloat(rows - 1) * gap) / CGFloat(rows)
+                ),
+                Self.maximumCardSide
             )
             let gridWidth = CGFloat(columns) * side + CGFloat(columns - 1) * gap
             let gridHeight = CGFloat(rows) * side + CGFloat(rows - 1) * gap
@@ -104,8 +115,11 @@ struct BoardGridView: View {
             let toLocal: (CGRect) -> CGPoint = { rect in
                 CGPoint(x: rect.midX - boardFrame.minX, y: rect.midY - boardFrame.minY)
             }
-            let drawLocal = pileFrames.draw.map(toLocal)
             let doneLocal = pileFrames.done.map(toLocal)
+            let collectionLocal = collectionTargetID
+                .flatMap { pileFrames.cardBoxes[$0] }
+                .map(toLocal)
+                ?? doneLocal
 
             ZStack {
                 VStack(spacing: gap) {
@@ -115,12 +129,6 @@ struct BoardGridView: View {
                                 let index = row * columns + column
                                 if index < table.count {
                                     let card = table[index]
-                                    let dealVector: CGSize? = (pastInitialDeal && drawLocal != nil)
-                                        ? CGSize(
-                                            width: drawLocal!.x - slotCenter(index).x,
-                                            height: drawLocal!.y - slotCenter(index).y
-                                        )
-                                        : nil
                                     CardCell(
                                         card: card,
                                         index: index,
@@ -128,8 +136,7 @@ struct BoardGridView: View {
                                         isHinted: hintedIDs.contains(card.id),
                                         isCelebrating: celebrationIDs.contains(card.id),
                                         isMismatched: mismatchIDs.contains(card.id),
-                                        mismatchToken: mismatchToken,
-                                        dealVector: dealVector
+                                        mismatchToken: mismatchToken
                                     )
                                     .frame(width: side, height: side)
                                     .onTapGesture {
@@ -186,15 +193,13 @@ struct BoardGridView: View {
                 GameAudio.shared.play(.deal)
             }
             .onChange(of: collectedCount) { oldCount, newCount in
-                guard newCount > oldCount, let doneLocal, !departureOrigins.isEmpty else {
-                    departureOrigins = []
-                    return
-                }
+                guard newCount > oldCount else { return }
+                guard !departureOrigins.isEmpty, let collectionLocal else { return }
                 let newFlights = departureOrigins.enumerated().map { offset, departure in
                     DepartureFlight(
                         card: departure.card,
                         from: departure.rect,
-                        to: doneLocal,
+                        to: collectionLocal,
                         delay: Double(offset) * 0.06
                     )
                 }
@@ -218,10 +223,6 @@ struct BoardGridView: View {
                 playedOpeningDeal = true
                 GameAudio.shared.play(.deal)
             }
-            Task {
-                try? await Task.sleep(for: .seconds(1.5))
-                pastInitialDeal = true
-            }
         }
     }
 }
@@ -234,7 +235,7 @@ struct DepartureFlight: Identifiable {
     let delay: Double
 }
 
-/// A matched card mid-air on its way to the done pile.
+/// A matched card mid-air on its way to the collector's cards box.
 private struct FlightCardView: View {
     let flight: DepartureFlight
 
@@ -297,9 +298,9 @@ struct MismatchExplainer: View {
     }
 }
 
-/// One slot on the board. New cards fly in from the draw pile (or flip in on
-/// the opening deal); mismatched picks shake; matched picks glow while their
-/// celebration runs.
+/// One slot on the board. New cards flip into their existing slots with a
+/// small deterministic offset; mismatched picks shake; matched picks glow
+/// while their celebration runs.
 private struct CardCell: View {
     let card: Card
     let index: Int
@@ -308,13 +309,23 @@ private struct CardCell: View {
     var isCelebrating = false
     let isMismatched: Bool
     let mismatchToken: Int
-    var dealVector: CGSize? = nil
 
     @State private var dealt = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     /// Local shake progress. Bumped by exactly 1 per mismatch this card is
     /// part of, so cards from earlier mismatches stay still.
     @State private var shakes: CGFloat = 0
+
+    private var entryOffset: CGSize {
+        CGSize(
+            width: CGFloat((card.id * 17) % 9 - 4),
+            height: CGFloat((card.id * 31) % 11 - 5)
+        )
+    }
+
+    private var entryRoll: Double {
+        Double((card.id * 29) % 13 - 6)
+    }
 
     var body: some View {
         CardView(card: card, isSelected: isSelected)
@@ -341,19 +352,14 @@ private struct CardCell: View {
                     shakes += 1
                 }
             }
-            .rotation3DEffect(
-                .degrees(dealt ? 0 : 70),
-                axis: (x: 0, y: 1, z: 0),
-                perspective: 0.6
-            )
-            .scaleEffect(dealt ? 1 : (dealVector == nil ? 1 : 0.45))
-            .offset(dealt ? .zero : (dealVector ?? CGSize(width: 0, height: -30)))
-            .opacity(dealt ? 1 : (dealVector == nil ? 0 : 0.3))
+            // The card lands face up. Only the title screen turns a card on
+            // its edge; an edge-on card on the table reads as a sliver.
+            .rotationEffect(.degrees(dealt ? 0 : entryRoll))
+            .scaleEffect(dealt ? 1 : 0.88)
+            .offset(dealt ? .zero : entryOffset)
+            .opacity(dealt ? 1 : 0)
             .onAppear {
-                let delay = dealVector == nil
-                    ? Double(index) * 0.06
-                    : 0.12 + Double(index % 6) * 0.06
-                withAnimation(.spring(duration: 0.55).delay(delay)) {
+                withAnimation(.spring(duration: 0.62, bounce: 0.16).delay(Double(index) * 0.06)) {
                     dealt = true
                 }
             }

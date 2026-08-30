@@ -44,6 +44,7 @@ struct NetSnapshot: Codable {
     var deckCount: Int
     var doneCount: Int
     var doneTopID: Int?
+    var lastCollectorID: String?
     var activePlayerID: String?
     var claimRemaining: TimeInterval?
     var isFinished: Bool

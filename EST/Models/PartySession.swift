@@ -76,6 +76,7 @@ final class PartySession {
     let engine = GameEngine()
     private(set) var players: [Player]
     private(set) var activePlayerID: Int?
+    private(set) var lastCollectorID: Int?
     private(set) var claimDeadline: Date?
     private(set) var penaltyToken = 0
 
@@ -86,6 +87,7 @@ final class PartySession {
         players = (0..<count).map { i in
             Player(id: i, name: Self.palette[i].0, color: Self.palette[i].1)
         }
+        lastCollectorID = nil
         engine.start()
     }
 
@@ -121,11 +123,13 @@ final class PartySession {
     /// Board taps route through here; ignored unless someone holds the claim.
     func select(_ card: Card) -> GameEngine.SelectionOutcome {
         guard activePlayerID != nil else { return .pending }
+        let claimingPlayerID = activePlayerID
         let outcome = engine.select(card)
         switch outcome {
         case .pending:
             break
         case .matched(let cards):
+            lastCollectorID = claimingPlayerID
             award(cards: cards)
             endClaim()
         case .mismatched:

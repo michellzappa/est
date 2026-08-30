@@ -43,6 +43,7 @@ final class NetworkPartySession {
     private(set) var deckCount = 0
     private(set) var doneCount = 0
     private(set) var doneTop: Card?
+    private(set) var lastCollectorID: String? = nil
     private(set) var activePlayerID: String?
     private(set) var claimDeadline: Date?
     private(set) var isFinished = false
@@ -146,10 +147,12 @@ final class NetworkPartySession {
     private func handleSelect(from playerID: String, cardID: Int) {
         guard isHost, activePlayerID == playerID else { return }
         guard let card = engine.table.first(where: { $0.id == cardID }) else { return }
+        let claimingPlayerID = activePlayerID
         switch engine.select(card) {
         case .pending:
             break
         case .matched(let cards):
+            lastCollectorID = claimingPlayerID
             scores[playerID, default: 0] += 1
             collectedCards[playerID, default: []].append(contentsOf: cards)
             endClaim()
@@ -234,6 +237,7 @@ final class NetworkPartySession {
             deckCount: deckCount,
             doneCount: doneCount,
             doneTopID: doneTop?.id,
+            lastCollectorID: lastCollectorID,
             activePlayerID: activePlayerID,
             claimRemaining: claimDeadline.map { $0.timeIntervalSince(now) },
             isFinished: isFinished
@@ -296,6 +300,7 @@ final class NetworkPartySession {
         deckCount = snapshot.deckCount
         doneCount = snapshot.doneCount
         doneTop = snapshot.doneTopID.map { Card(id: $0) }
+        lastCollectorID = snapshot.lastCollectorID
         activePlayerID = snapshot.activePlayerID
         claimDeadline = snapshot.claimRemaining.map { now.addingTimeInterval($0) }
         isFinished = snapshot.isFinished

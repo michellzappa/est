@@ -8,6 +8,9 @@ struct CardView: View {
     var isSelected = false
     var isDimmed = false
 
+    @State private var hoverLocation: CGPoint?
+    @State private var isHovering = false
+
     private static let referenceCardSide: CGFloat = 100
     private static let symbolGrowthRate = 2.0 / 3.0
     private static let symbolFraction: CGFloat = 0.23
@@ -16,27 +19,83 @@ struct CardView: View {
     var body: some View {
         GeometryReader { proxy in
             let side = proxy.size.width
+            let normalizedHoverX = min(
+                max((hoverLocation?.x ?? side / 2) / max(side, 1), 0),
+                1
+            )
+            let normalizedHoverY = min(
+                max((hoverLocation?.y ?? side / 2) / max(side, 1), 0),
+                1
+            )
+            let hoverTiltX = isHovering ? (0.5 - normalizedHoverY) * 7 : 0
+            let hoverTiltY = isHovering ? (normalizedHoverX - 0.5) * 7 : 0
 
             ZStack {
                 RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
                     .fill(Appearance.shared.theme.cardSurface)
                     .shadow(
-                        color: .black.opacity(isSelected ? 0.35 : 0.15),
-                        radius: isSelected ? side * 0.06 : side * 0.03,
-                        y: side * 0.02
+                        color: .black.opacity(isSelected ? 0.35 : isHovering ? 0.22 : 0.15),
+                        radius: isSelected ? side * 0.06 : isHovering ? side * 0.08 : side * 0.03,
+                        y: isSelected ? side * 0.02 : isHovering ? side * 0.04 : side * 0.02
                     )
+                if isHovering {
+                    RadialGradient(
+                        colors: [
+                            .white.opacity(0.30),
+                            .white.opacity(0.08),
+                            .clear
+                        ],
+                        center: UnitPoint(x: normalizedHoverX, y: normalizedHoverY),
+                        startRadius: 0,
+                        endRadius: side * 0.68
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: side * 0.12, style: .continuous))
+                }
                 RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
                     .strokeBorder(
-                        isSelected ? card.tint.color : Appearance.shared.theme.cardBorder,
-                        lineWidth: isSelected ? 3 : 1
+                        isSelected
+                            ? card.tint.color
+                            : isHovering
+                                ? card.tint.color.opacity(0.75)
+                                : Appearance.shared.theme.cardBorder,
+                        lineWidth: isSelected ? 3 : isHovering ? 2 : 1
                     )
 
                 symbols(side: side)
             }
-            .scaleEffect(isSelected ? 1.06 : 1)
+            .scaleEffect((isSelected ? 1.06 : 1) * (isHovering ? 1.035 : 1))
+            .rotation3DEffect(
+                .degrees(hoverTiltX),
+                axis: (x: 1, y: 0, z: 0),
+                perspective: 0.55
+            )
+            .rotation3DEffect(
+                .degrees(hoverTiltY),
+                axis: (x: 0, y: 1, z: 0),
+                perspective: 0.55
+            )
             .opacity(isDimmed ? 0.35 : 1)
         }
         .aspectRatio(1, contentMode: .fit)
+        // Apple Pencil hover on supported iPads is delivered through the
+        // continuous hover phase. The same path is harmless for a trackpad or
+        // mouse, and touch selection remains handled by the board.
+        .onContinuousHover(coordinateSpace: .local) { phase in
+            switch phase {
+            case .active(let location):
+                hoverLocation = location
+                if !isHovering {
+                    withAnimation(.spring(duration: 0.18, bounce: 0.15)) {
+                        isHovering = true
+                    }
+                }
+            case .ended:
+                withAnimation(.easeOut(duration: 0.16)) {
+                    isHovering = false
+                    hoverLocation = nil
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -59,13 +118,16 @@ struct CardView: View {
                 symbol(s).offset(x: -dx)
                 symbol(s).offset(x: dx)
             default:
-                // Centers sit on an equilateral triangle around the card
-                // center; the bottom pair ends up exactly `gap` apart.
+                // Center the triangle's visible bounds, not just its
+                // centroid: the top vertex reaches farther from the center
+                // than the bottom pair. The correction keeps the bottom
+                // pair exactly `gap` apart.
                 let r = (s + gap) / sqrt(3.0)
                 let dx = r * sin(.pi / 3)
-                symbol(s).offset(y: -r)
-                symbol(s).offset(x: -dx, y: r / 2)
-                symbol(s).offset(x: dx, y: r / 2)
+                let verticalCorrection = r / 4
+                symbol(s).offset(y: -r + verticalCorrection)
+                symbol(s).offset(x: -dx, y: r / 2 + verticalCorrection)
+                symbol(s).offset(x: dx, y: r / 2 + verticalCorrection)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
