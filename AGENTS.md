@@ -28,8 +28,35 @@ The shared scheme is declared in `project.yml` (`scheme: testTargets: []`).
 Do not remove it: without it a regenerate leaves the project scheme-less and
 `xcodebuild -scheme EST` fails.
 
+macOS ships bash 3.2, where `"${array[@]}"` on an empty array trips `set -u`.
+Use `${a[@]+"${a[@]}"}` when an argument is optional. This broke
+`scripts/appstore.sh` only when the App Review phone was omitted.
+
 The green gate is a clean build. MZ tests by hand — do not boot simulators or
 drive the UI unless asked.
+
+## Screenshots and UI tests
+
+`appstore/devices.mjs` is the single source of truth for device classes. Every
+script reads the simulator name, pixel size, and ASC display type from it.
+Apple requires a screenshot set for every device class the app supports, so
+iPhone and iPad are both mandatory while TARGETED_DEVICE_FAMILY is "1,2".
+
+- A SwiftUI `Form` is lazy. A row below the fold is absent from the
+  accessibility tree, not merely unhittable, so `waitForExistence` fails before
+  any scroll happens. Scroll first, then re-check existence each pass. This is
+  what `scrollToTap` in `ScreenshotTests.swift` does.
+- Wait on `GameExitButton` to detect a running game. The deck pile is not
+  universal: the iPad duel table seats players instead of showing piles.
+- `capture.sh` exports attachments even when the test fails, then exits
+  non-zero. A failed run still holds its captures and the UI hierarchy at the
+  failure, which is the only way to diagnose a device-specific break.
+- `capture.sh` keeps only lowercase-slug names. A failed run also exports UI
+  hierarchies, debug descriptions, synthesized events, snapshots, and a screen
+  recording.
+- The renderer refuses to render a missing capture unless `--allow-missing` is
+  passed. A silent placeholder once produced six blank iPad panels that passed
+  size validation and were ready to upload.
 
 ## Invariants
 
@@ -168,6 +195,38 @@ These rules come from the real 1.0.0 publish. Each one failed first:
   transmits Usage Data (product interaction), Diagnostics, and a weekly
   rotating device identifier. All are unlinked and not used for tracking. If
   the diagnostics default changes, this declaration changes with it.
+
+An in-app purchase is a separate review item with its own readiness rules.
+`est.support` stays MISSING_METADATA until all three exist:
+
+- a version-scoped localization, `asc iap versions localizations create`. The
+  description is capped at 45 characters.
+- availability, `asc iap pricing availability set`. Read the app's own
+  territory list from `asc pricing availability territory-availabilities` and
+  reuse it, so the purchase matches the app instead of drifting.
+- a review screenshot, `asc iap review-screenshots create`. Use this command,
+  not `asc iap versions images`. That one manages the promotional image, which
+  demands its own dimensions and fails every device screenshot with
+  IMAGE_INCORRECT_DIMENSIONS. The review screenshot endpoint accepts a plain
+  1320x2868 capture. The 640x920 size in Apple's help text is a red herring
+  for this endpoint.
+
+Add the in-app purchase to the review submission before submitting. `asc
+review submit` attaches only the build, and a submitted review submission
+refuses new items with "reviewSubmission state does not allow adding more
+items". Build the submission by hand when a version ships an in-app purchase:
+
+```
+asc review submissions-create --app APP_ID --platform IOS
+asc review items-add --submission SUB --item-type appStoreVersions --item-id VERSION_ID
+asc review items-add --submission SUB --item-type inAppPurchaseVersions --item-id IAP_VERSION_ID
+asc review submissions-submit --id SUB --confirm
+```
+
+To recover from a submission that is missing an item, cancel it with
+`asc review submissions-update --id SUB --canceled=true --confirm`. The version
+then reads DEVELOPER_REJECTED, which means editable again, not rejected by
+Apple. Rebuild the submission with every item and submit again.
 
 Two steps need the App Store Connect web UI. The `asc` web session fails at
 Apple's session-info step with status 401, and the public API rejects the

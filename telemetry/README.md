@@ -73,3 +73,12 @@ cannot keep a secret. Before public deployment, configure a Cloudflare rate
 limit for `POST /v1/feedback` (for example, a small per-IP hourly limit) and
 ensure the Resend sender is a verified domain. Feedback may be retained by the
 recipient's email system and Resend; the Worker does not write it to D1.
+
+## Deploy traps
+
+- The tracked `wrangler.toml` holds a placeholder database id. Wrangler refuses
+  to deploy with it: "binding DB of type d1 must have a valid `database_id`".
+  Keep the real id in the gitignored `telemetry/wrangler.local.toml`.
+- The feedback reply address is optional. The Worker validates it and drops a
+  malformed one rather than rejecting the message, because the feedback still
+  deserves to arrive. A valid address becomes the Resend `reply_to`.
