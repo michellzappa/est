@@ -97,6 +97,53 @@ drive the UI unless asked.
 - Modes MZ decided: solo and duel. The UI exposes two-player duel on iPhone,
   and two- or four-player one-device tables on iPad; iPad matchmaking can also
   fill the existing four-player network roster.
+- Never attach `.task` to a `Group` whose branches are mutually exclusive.
+  SwiftUI applies the modifier to each branch. A state change that switches the
+  branch destroys that view and cancels the task that set the state. This kept
+  Community Pulse on "Loading…" forever. `CommunityPulseView` in
+  `SettingsView.swift` now holds one `VStack` and a `Phase` enum, and the
+  `.task` sits on the stable container.
+
+## App Store Connect
+
+The app record is `6806817604`. The App Store name is `EST - Card Trios`. The
+product name stays EST. `appstore/appstore.md` is the source of truth for the
+listing; edit it, then run `node appstore/metadata.mjs`.
+
+`scripts/appstore.sh` needs `asc` 4.x. Version 3.x has no
+`ELAPSED_TIME_CENTISECOND` formatter, and 4.x renamed flags the script uses.
+
+One App Store Connect API key serves every app in the team. Reuse it. Do not
+make a second key:
+
+```
+export EST_TEAM_ID=992N457T8D
+export EST_ASC_SECRETS=~/.cartogram-secrets
+```
+
+Order matters in `setup`. Each rule below comes from a failed run:
+
+- Do not pass `--bundle-id` to `asc app-setup info set`. App creation binds the
+  bundle ID. Sending it again fails with "already been used".
+- `PUZZLE` is a subcategory of `GAMES`, not a second category. Use
+  `--primary GAMES --primary-subcategory-one GAMES_PUZZLE`.
+- Create the Game Center detail before the leaderboards. A new app record has
+  none, and the leaderboard call fails without one. The detail also clears the
+  runtime error `GKError 15`, `5019 no game matching descriptor`.
+- Use `grep`, not `rg`. `rg` is absent from some PATHs. The old `rg` check
+  failed open and reported a false "asc does not support
+  ELAPSED_TIME_CENTISECOND".
+- Availability failure must not stop the run. It used to abort `setup` before
+  the leaderboards were created.
+
+Two steps need the App Store Connect web UI. The `asc` web session fails at
+Apple's session-info step with status 401, and the public API rejects the
+availability bootstrap:
+
+- Creating the app record.
+- Pricing and Availability. EST is free in every territory except China
+  mainland. China requires a government ISBN for a game that carries an in-app
+  purchase, and EST carries the support purchase.
 
 ## Not built yet
 

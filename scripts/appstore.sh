@@ -80,34 +80,68 @@ create_app() {
 
 setup_app() {
   local app_id="$1"
-  require_team_id
   load_asc_credentials
   cd "$ROOT"
+  # Do not pass --bundle-id: app creation already binds it, and re-sending it
+  # fails with "The Bundle ID you entered has already been used."
   asc app-setup info set \
     --app "$app_id" \
     --primary-locale en-US \
-    --bundle-id "$BUNDLE_ID" \
     --content-rights DOES_NOT_USE_THIRD_PARTY_CONTENT \
     --locale en-US \
     --name "EST - Card Trios" \
     --subtitle "Find the three that fit." \
     --privacy-policy-url "https://github.com/michellzappa/est/blob/main/PRIVACY.md"
-  asc app-setup categories set --app "$app_id" --primary GAMES --secondary PUZZLE
-  asc web apps availability create \
+  # Apple models "Games / Puzzle" as a primary category plus subcategories.
+  # PUZZLE is not a top-level category, so it cannot be --secondary.
+  asc app-setup categories set \
     --app "$app_id" \
-    --public-provider-id "$TEAM_ID" \
-    --territory USA \
-    --available-in-new-territories true
+    --primary GAMES \
+    --primary-subcategory-one GAMES_PUZZLE \
+    --primary-subcategory-two GAMES_CARD
+  configure_availability "$app_id"
   asc app-setup pricing set \
     --app "$app_id" \
     --free \
     --base-territory USA
   asc age-rating edit --app "$app_id" --all-none
 
+  # Leaderboards attach to a Game Center detail, which a new app record lacks.
+  # This is also what makes Game Center recognize the app at runtime.
+  if asc game-center details create --app "$app_id" >/dev/null 2>&1; then
+    echo "· Game Center detail created"
+  else
+    echo "· Game Center detail already exists"
+  fi
+
   create_leaderboard "$app_id" "Solo 81" "est.solo.completion.time"
   create_leaderboard "$app_id" "Quick 27" "est.quick.completion.time"
   echo "✓ basic EST App Store setup complete"
   echo "Next: publish a build, apply privacy declarations, then run upload-screenshots."
+}
+
+# Availability is best effort. Apple currently rejects the public-API bootstrap
+# for a new app (it demands territory resources the request never named), and
+# the asc web-session login fails at Apple's session-info step. Neither is
+# something this script can fix, and neither should block categories, pricing,
+# age rating, or the leaderboards.
+configure_availability() {
+  local app_id="$1"
+  if ! asc pricing availability create \
+    --app "$app_id" \
+    --territory USA \
+    --available true \
+    --available-in-new-territories true >/dev/null 2>&1; then
+    echo "⚠ Could not initialize availability through the public API." >&2
+    echo "  Set Pricing and Availability in App Store Connect by hand:" >&2
+    echo "  free, all territories, China mainland excluded." >&2
+    return 0
+  fi
+  echo "· availability initialized"
+  asc app-setup availability edit --app "$app_id" --all-territories --available true
+  # China mainland requires a government ISBN for games that carry an in-app
+  # purchase. EST has the support purchase, so it stays out until that exists.
+  asc app-setup availability edit --app "$app_id" --territory CHN --available false
 }
 
 create_leaderboard() {
@@ -134,7 +168,7 @@ create_leaderboard() {
   # The app submits centiseconds. Do not silently create the legacy
   # ELAPSED_TIME_MILLISECOND formatter, which uses a different unit.
   if ! asc game-center leaderboards create --help 2>&1 \
-    | rg -q -- 'ELAPSED_TIME_CENTISECOND'; then
+    | grep -q -- 'ELAPSED_TIME_CENTISECOND'; then
     echo "✗ Installed asc does not support ELAPSED_TIME_CENTISECOND." >&2
     echo "  Upgrade asc before creating the EST Game Center leaderboards." >&2
     return 1
