@@ -1,23 +1,32 @@
 #!/usr/bin/env bash
 # Capture raw App Store screenshots from the EST UI-test target.
 #
-#   appstore/capture.sh [light|dark]
+#   appstore/capture.sh <device> [light|dark]
+#     device: iphone69 | ipad13
 #
-# The raw captures go to appstore/raw/iphone69/<appearance>/. They are kept
+# The raw captures go to appstore/raw/<device>/<appearance>/. They are kept
 # separate from the final staged screenshots so the marketing order can change
 # without re-running the simulator.
+#
+# The UI test makes no device or orientation assumptions, so the same test
+# target produces both sets. Only the simulator changes.
 set -euo pipefail
 
-APPEARANCE="${1:-light}"
+DEVICE="${1:?usage: appstore/capture.sh <iphone69|ipad13> [light|dark]}"
+APPEARANCE="${2:-light}"
 case "$APPEARANCE" in
   light|dark) ;;
-  *) echo "usage: appstore/capture.sh [light|dark]"; exit 1 ;;
+  *) echo "usage: appstore/capture.sh <device> [light|dark]"; exit 1 ;;
 esac
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-SIM_NAME="${EST_SIMULATOR_NAME:-iPhone 16 Pro Max}"
+# devices.mjs is the single source of truth for the simulator per device class.
+SIM_DEFAULT="$(node --input-type=module -e \
+  'import { device } from "./appstore/devices.mjs"; console.log(device(process.argv[1]).simulator);' \
+  "$DEVICE")" || { echo "Unknown device: $DEVICE"; exit 1; }
+SIM_NAME="${EST_SIMULATOR_NAME:-$SIM_DEFAULT}"
 SIM_ID="$(xcrun simctl list devices available | grep "$SIM_NAME (" | head -1 | grep -oE '\([0-9A-F-]{36}\)' | tr -d '()')"
 [ -n "$SIM_ID" ] || { echo "No '$SIM_NAME' simulator found"; exit 1; }
 
@@ -29,8 +38,8 @@ xcrun simctl status_bar "$SIM_ID" override \
   --cellularMode notSupported \
   --batteryState charged --batteryLevel 100 2>/dev/null || true
 
-RESULT="/tmp/est-appstore-${APPEARANCE}.xcresult"
-OUT="$ROOT/appstore/raw/iphone69/$APPEARANCE"
+RESULT="/tmp/est-appstore-${DEVICE}-${APPEARANCE}.xcresult"
+OUT="$ROOT/appstore/raw/$DEVICE/$APPEARANCE"
 rm -rf "$RESULT" "$OUT"
 mkdir -p "$OUT"
 
@@ -70,4 +79,4 @@ os.remove(manifest_path)
 print("✓ captured:", ", ".join(sorted(name for name in os.listdir(directory) if name.endswith(".png"))))
 PY
 
-echo "✓ raw screenshots → appstore/raw/iphone69/$APPEARANCE"
+echo "✓ raw screenshots → appstore/raw/$DEVICE/$APPEARANCE"

@@ -1,12 +1,7 @@
 {
   "version": 1,
   "locale": "en-US",
-  "device": {
-    "key": "iphone69",
-    "width": 1320,
-    "height": 2868,
-    "appearance": "light"
-  },
+  "appearance": "light",
   "panels": [
     {
       "id": "solo-81",
@@ -60,8 +55,7 @@
       "accent": "#efa629",
       "background": "#f0a833",
       "text": "#111111",
-      "screenTop": 720,
-      "screenWidth": 1040,
+      "overrides": { "iphone69": { "screenTop": 720 } },
       "alt": "EST mathematics explorer showing card coordinates and set completion"
     }
   ]

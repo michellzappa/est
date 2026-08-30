@@ -1,10 +1,13 @@
 // Render the declarative product-page.json into exact App Store marketing PNGs.
 //
 //   npm run product-page --prefix appstore
+//   npm run product-page --prefix appstore -- --device ipad13
 //   npm run product-page --prefix appstore -- --appearance dark
 //
-// Raw simulator captures stay in raw/; the rendered panels go to
-// product-page/en-US/ and are mirrored to screenshots/en-US/ for ASC upload.
+// Raw simulator captures stay in raw/<device>/; the rendered panels go to
+// product-page/<device>/en-US/ and are mirrored to screenshots/<device>/en-US/
+// for ASC upload. Panels are authored once in the shared design space and
+// scaled per device, so the type scale matches on iPhone and iPad.
 
 import {
   copyFileSync,
@@ -18,6 +21,7 @@ import {
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { device as lookupDevice, DEVICE_KEYS } from "./devices.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const config = JSON.parse(readFileSync(join(ROOT, "product-page.json"), "utf8"));
@@ -26,15 +30,18 @@ const arg = (name, fallback) => {
   return index === -1 ? fallback : process.argv[index + 1];
 };
 
-const appearance = arg("appearance", config.device.appearance ?? "light");
-const width = config.device.width;
-const height = config.device.height;
-const rawDir = join(ROOT, "raw", config.device.key, appearance);
-const productDir = join(ROOT, "product-page", config.locale);
-const uploadDir = join(ROOT, "screenshots", config.locale);
+const appearance = arg("appearance", config.appearance ?? "light");
+const deviceKey = arg("device", DEVICE_KEYS[0]);
+const device = lookupDevice(deviceKey);
+const { width, height, designWidth, designHeight, zoom } = device;
+const rawDir = join(ROOT, "raw", device.key, appearance);
+const productDir = join(ROOT, "product-page", device.key, config.locale);
+const uploadDir = join(ROOT, "screenshots", device.key, config.locale);
 
 if (!existsSync(rawDir)) {
-  throw new Error(`No raw captures at ${rawDir}. Run appstore/capture.sh ${appearance} first.`);
+  throw new Error(
+    `No raw captures at ${rawDir}. Run appstore/capture.sh ${device.key} ${appearance} first.`,
+  );
 }
 
 mkdirSync(productDir, { recursive: true });
@@ -64,15 +71,21 @@ const mix = (hex, amount, base = "#ffffff") => {
 const dataURL = (file) => `data:image/png;base64,${readFileSync(file).toString("base64")}`;
 
 const panelHTML = (panel, image) => {
-  const screenWidth = panel.screenWidth ?? 1040;
-  // Match Septena's iPhone frame geometry: a uniform 24px bezel around a
-  // 158px outer radius, with the screenshot clipped to the concentric inner
-  // radius. This reads as an iPhone frame at the 1320px export width.
-  const framePadding = 24;
+  // Frame geometry comes from the device registry. A panel may override any
+  // value globally, or per device under `overrides.<deviceKey>`.
+  const geometry = {
+    ...device.frame,
+    ...panel,
+    ...(panel.overrides?.[device.key] ?? {}),
+  };
+  const screenWidth = geometry.screenWidth;
+  // A uniform bezel around the frame radius, with the screenshot clipped to
+  // the concentric inner radius.
+  const framePadding = geometry.padding;
   const frameWidth = screenWidth + framePadding * 2;
-  const frameRadius = 158;
+  const frameRadius = geometry.radius;
   const screenRadius = frameRadius - framePadding;
-  const screenTop = panel.screenTop ?? 660;
+  const screenTop = geometry.screenTop;
   const background = panel.background ?? panel.accent;
   const text = panel.text ?? "#ffffff";
   const highlightText = text === "#ffffff"
@@ -85,9 +98,9 @@ const panelHTML = (panel, image) => {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; }
-html, body { width:${width}px; height:${height}px; margin:0; overflow:hidden; }
+html, body { width:${designWidth}px; height:${designHeight}px; margin:0; overflow:hidden; }
 body { font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif; }
-.panel { position:relative; width:${width}px; height:${height}px; overflow:hidden; color:${text};
+.panel { position:relative; width:${designWidth}px; height:${designHeight}px; overflow:hidden; color:${text};
   background:linear-gradient(145deg, ${mix(background, 0.88, "#ffffff")} 0%, ${background} 54%, ${mix(background, 0.76, "#000000")} 100%); }
 .panel::before { content:""; position:absolute; width:1500px; height:1500px; left:-520px; top:-730px;
   border-radius:50%; background:radial-gradient(circle, rgba(255,255,255,.42) 0%, rgba(255,255,255,.14) 34%, transparent 70%); }
@@ -101,7 +114,7 @@ h1 em { color:${highlightText}; font-style:normal; }
   transform:translateX(-50%); background:#0c0d0f; border-radius:${frameRadius}px; overflow:hidden;
   box-shadow:0 54px 100px -34px rgba(0,0,0,.52), 0 12px 28px rgba(0,0,0,.15); }
 .screen { display:block; width:100%; height:auto; border-radius:${screenRadius}px; }
-.missing { aspect-ratio:1320/2868; border-radius:${screenRadius}px; display:flex; align-items:center; justify-content:center;
+.missing { aspect-ratio:${width}/${height}; border-radius:${screenRadius}px; display:flex; align-items:center; justify-content:center;
   flex-direction:column; gap:18px; color:${panel.accent}; background:#f6f6f7; font-size:34px; text-align:center; }
 .missing small { font:28px/1.2 ui-monospace, monospace; opacity:.65; }
 </style></head><body><main class="panel">
@@ -111,7 +124,11 @@ h1 em { color:${highlightText}; font-style:normal; }
 };
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+// Render in design space, then let the scale factor produce exact device pixels.
+const page = await browser.newPage({
+  viewport: { width: designWidth, height: designHeight },
+  deviceScaleFactor: zoom,
+});
 const manifest = [];
 
 for (const [index, panel] of config.panels.entries()) {
@@ -129,6 +146,7 @@ for (const [index, panel] of config.panels.entries()) {
     file: outputName,
     width,
     height,
+    device: device.key,
     appearance,
     headline: panel.headline,
     alt: panel.alt,
@@ -136,7 +154,10 @@ for (const [index, panel] of config.panels.entries()) {
   console.log(`✓ ${outputName}${image ? "" : " (missing source placeholder)"}`);
 }
 
-writeFileSync(join(productDir, "manifest.json"), JSON.stringify({ ...config, appearance, exports: manifest }, null, 2) + "\n");
+writeFileSync(
+  join(productDir, "manifest.json"),
+  JSON.stringify({ ...config, device: device.key, appearance, exports: manifest }, null, 2) + "\n",
+);
 await browser.close();
-console.log(`✓ product page exports → ${productDir}`);
+console.log(`✓ ${device.label} product page exports → ${productDir}`);
 console.log(`✓ ASC upload set → ${uploadDir}`);

@@ -41,21 +41,39 @@ usage() {
   echo "Commands: prepare | product-page | create <APPLE_ID> | setup <APP_ID> | upload-screenshots <APP_ID> | publish <APP_ID> | review-details <APP_ID> | submit <APP_ID>"
 }
 
+# Every device class EST ships. Apple requires a screenshot set for each one,
+# so iPad is not optional while TARGETED_DEVICE_FAMILY stays "1,2".
+DEVICES=(iphone69 ipad13)
+
+asc_device_type() {
+  node --input-type=module -e \
+    'import { device } from "./appstore/devices.mjs"; console.log(device(process.argv[1]).ascDeviceType);' \
+    "$1"
+}
+
 product_page() {
   cd "$ROOT"
-  npm run product-page --prefix appstore
+  for device in "${DEVICES[@]}"; do
+    npm run product-page --prefix appstore -- --device "$device"
+  done
 }
 
 prepare() {
   cd "$ROOT"
   xcodegen generate
-  ./appstore/capture.sh light
-  ./appstore/stage.sh light
+  for device in "${DEVICES[@]}"; do
+    ./appstore/capture.sh "$device" light
+  done
   product_page
   node appstore/metadata.mjs
   node appstore/validate.mjs
   asc metadata validate --dir appstore/metadata --output table
-  asc screenshots validate --path appstore/screenshots/en-US --device-type IPHONE_69 --output table
+  for device in "${DEVICES[@]}"; do
+    asc screenshots validate \
+      --path "appstore/screenshots/$device/en-US" \
+      --device-type "$(asc_device_type "$device")" \
+      --output table
+  done
 }
 
 create_app() {
@@ -192,14 +210,16 @@ upload_screenshots() {
   product_page
   node appstore/metadata.mjs
   node appstore/validate.mjs
-  asc screenshots upload \
-    --app "$app_id" \
-    --version "$VERSION" \
-    --path appstore/screenshots \
-    --device-type IPHONE_69 \
-    --platform IOS \
-    --replace \
-    --confirm
+  for device in "${DEVICES[@]}"; do
+    asc screenshots upload \
+      --app "$app_id" \
+      --version "$VERSION" \
+      --path "appstore/screenshots/$device" \
+      --device-type "$(asc_device_type "$device")" \
+      --platform IOS \
+      --replace \
+      --confirm
+  done
 }
 
 publish_app() {

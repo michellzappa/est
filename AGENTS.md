@@ -136,6 +136,17 @@ Order matters in `setup`. Each rule below comes from a failed run:
 - Availability failure must not stop the run. It used to abort `setup` before
   the leaderboards were created.
 
+In-app purchase product IDs accept only letters, digits, periods, and
+underscores. The bundle ID `com.centaur-labs.est` has a hyphen, so the support
+purchase cannot mirror it. The ID is `est.support`, matching the short scheme
+of the Game Center IDs. It lives in `SupportStore.swift` and
+`Config/ESTSupport.storekit`, and both must agree with App Store Connect.
+
+Apple requires a screenshot set for every device class the app supports. EST
+ships `TARGETED_DEVICE_FAMILY: 1,2`, so iPhone and iPad sets are both
+mandatory. `appstore/devices.mjs` is the single source of truth for the device
+classes; `appstore/validate.mjs` fails when a class has no screenshots.
+
 Two steps need the App Store Connect web UI. The `asc` web session fails at
 Apple's session-info step with status 401, and the public API rejects the
 availability bootstrap:

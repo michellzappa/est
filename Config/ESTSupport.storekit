@@ -19,7 +19,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.centaur-labs.est.support",
+      "productID" : "est.support",
       "referenceName" : "Support EST",
       "type" : "NonConsumable"
     }

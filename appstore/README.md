@@ -3,8 +3,10 @@
 This follows the release setup used by Septena, adapted to EST's single iPhone/iPad
 target and the installed `asc` CLI. `appstore/appstore.md` contains the
 listing copy. `metadata.mjs` turns it into the JSON files accepted by `asc
-metadata`. The UI test captures six iPhone screens: title, Solo 81, Quick 27,
-one-phone Duel, rules, and the math explorer.
+metadata`. The UI test captures six screens: title, Solo 81, Quick 27,
+one-phone Duel, rules, and the math explorer. The same test target runs on
+both an iPhone and an iPad simulator, because it makes no device or
+orientation assumption.
 
 ## Local capture and validation
 
@@ -29,21 +31,44 @@ node appstore/metadata.mjs
 node appstore/validate.mjs --metadata-only
 ```
 
-That regenerates the Xcode project from `project.yml`, captures an iPhone 16
-Pro Max simulator with Apple's 9:41 status bar, stages the screenshots at
-1320×2868, generates metadata, and runs both local validators. Set
-`EST_SIMULATOR_NAME` to another installed 6.9-inch simulator if needed.
+That regenerates the Xcode project from `project.yml`, captures every device
+class with Apple's 9:41 status bar, renders the marketing panels, generates
+metadata, and runs both local validators. Set `EST_SIMULATOR_NAME` to override
+the simulator for a single capture run.
 
-The staged screenshots use the current ASC CLI display type `IPHONE_69`. Apple
-accepts one to ten screenshots for this device class. EST supports iPhone and
-iPad; the current screenshot set remains focused on iPhone, with no Mac
-screenshot set.
+`appstore/devices.mjs` is the single source of truth for the device classes.
+Every other script reads the simulator name, pixel size, and ASC display type
+from it:
+
+| Device | Pixels | ASC display type | Simulator |
+| --- | --- | --- | --- |
+| `iphone69` | 1320×2868 | `IPHONE_69` | iPhone 16 Pro Max |
+| `ipad13` | 2064×2752 | `IPAD_PRO_3GEN_129` | iPad Pro 13-inch (M4) |
+
+Apple requires a screenshot set for every device class the app supports, and
+EST ships `TARGETED_DEVICE_FAMILY: 1,2`. A missing iPad set blocks submission,
+so `validate.mjs` fails when one device class has no screenshots. There is no
+Mac screenshot set.
+
+Capture one device class at a time with:
+
+```bash
+./appstore/capture.sh ipad13 light
+```
+
+Panels are authored once. Each device renders in a shared design space 1320
+units wide, and Playwright scales that space to the real pixel size, so the
+type scale is identical on iPhone and iPad while the proportions differ. A
+panel can override its frame geometry for one device under
+`overrides.<deviceKey>` in `product-page.json`; the mathematics panel does this
+to nudge its frame down on iPhone only.
 
 The product-page source is [product-page.json](product-page.json). Each panel
 keeps its source capture, headline, accent, and alt text as editable metadata.
 The renderer writes the finished images to
-`appstore/product-page/en-US/` and mirrors the same files into
-`appstore/screenshots/en-US/` for upload. To render without recapturing:
+`appstore/product-page/<device>/en-US/` and mirrors the same files into
+`appstore/screenshots/<device>/en-US/` for upload. To render every device class
+without recapturing:
 
 ```bash
 ./scripts/appstore.sh product-page
@@ -85,7 +110,7 @@ from `web apps create`.
 
 Create this product manually in App Store Connect before submitting:
 
-- Product ID: `com.centaur-labs.est.support`
+- Product ID: `est.support`
 - Type: Non-Consumable
 - Display name: `Support EST`
 - Price: `$10.00` / `£10.00` / `€10.00` in the relevant storefronts

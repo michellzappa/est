@@ -4,9 +4,11 @@ import { existsSync, openSync, readSync, closeSync, readdirSync } from "node:fs"
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DEVICES } from "./devices.mjs";
+
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const SOURCE = join(ROOT, "appstore.md");
-const SCREENSHOTS = join(ROOT, "screenshots", "en-US");
+const screenshotDir = (key) => join(ROOT, "screenshots", key, "en-US");
 const validateScreenshots = !process.argv.includes("--metadata-only");
 const text = (await import("node:fs")).readFileSync(SOURCE, "utf8");
 const limits = {
@@ -47,23 +49,36 @@ function pngInfo(file) {
   };
 }
 
-const shots = validateScreenshots && existsSync(SCREENSHOTS)
-  ? readdirSync(SCREENSHOTS).filter((file) => file.endsWith(".png")).sort()
-  : [];
+// Apple requires a screenshot set for every device class the app supports.
+// EST ships iPhone and iPad (TARGETED_DEVICE_FAMILY 1,2), so a missing iPad
+// set is a submission blocker, not a warning.
+const counts = [];
 if (validateScreenshots) {
-  if (shots.length < 1 || shots.length > 10) issues.push(`screenshots: ${shots.length} (expected 1 to 10)`);
-  for (const shot of shots) {
-    const info = pngInfo(join(SCREENSHOTS, shot));
-    if (!info) { issues.push(`${shot}: not a PNG`); continue; }
-    if (info.width !== 1320 || info.height !== 2868) {
-      issues.push(`${shot}: expected 1320×2868, got ${info.width}×${info.height}`);
+  for (const [key, spec] of Object.entries(DEVICES)) {
+    const directory = screenshotDir(key);
+    const shots = existsSync(directory)
+      ? readdirSync(directory).filter((file) => file.endsWith(".png")).sort()
+      : [];
+    counts.push({ key, label: spec.label, count: shots.length });
+    if (shots.length < 1 || shots.length > 10) {
+      issues.push(`${key}: ${shots.length} screenshot(s) (expected 1 to 10)`);
+      continue;
     }
-    if ([4, 6].includes(info.colorType)) issues.push(`${shot}: alpha channel present`);
+    for (const shot of shots) {
+      const info = pngInfo(join(directory, shot));
+      if (!info) { issues.push(`${key}/${shot}: not a PNG`); continue; }
+      if (info.width !== spec.width || info.height !== spec.height) {
+        issues.push(
+          `${key}/${shot}: expected ${spec.width}×${spec.height}, got ${info.width}×${info.height}`,
+        );
+      }
+      if ([4, 6].includes(info.colorType)) issues.push(`${key}/${shot}: alpha channel present`);
+    }
   }
 }
 
 for (const issue of issues) console.log(`✗ ${issue}`);
 if (issues.length) process.exit(1);
 console.log(validateScreenshots
-  ? `✓ metadata limits passed; ${shots.length} iPhone 6.9-inch screenshot(s) are RGB at 1320×2868`
+  ? `✓ metadata limits passed; ${counts.map((c) => `${c.count} ${c.label}`).join(", ")} screenshot(s) are RGB at the exact ASC sizes`
   : "✓ metadata limits passed; screenshot validation skipped");

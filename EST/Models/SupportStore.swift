@@ -9,7 +9,10 @@ import StoreKit
 @MainActor
 @Observable
 final class SupportStore {
-    static let productID = "com.centaur-labs.est.support"
+    // App Store Connect rejects hyphens in product IDs, so this cannot mirror
+    // the bundle ID (com.centaur-labs.est). It follows the same short scheme as
+    // the Game Center IDs, est.solo.completion.time and est.quick.completion.time.
+    static let productID = "est.support"
 
     private(set) var product: Product?
     private(set) var isSupporter = false
