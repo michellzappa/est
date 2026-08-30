@@ -12,7 +12,20 @@ update that row instead of inflating the period.
 
 ## Deploy
 
-Install Wrangler, create the D1 database, put its id in `wrangler.toml`, then
+The tracked `wrangler.toml` keeps a placeholder database id so the real one
+stays out of the public repository. Wrangler refuses to deploy with the
+placeholder: "binding DB of type d1 must have a valid `database_id`". Keep the
+real id in `telemetry/wrangler.local.toml`, which is gitignored, and deploy
+with it:
+
+```bash
+npx wrangler deploy --config telemetry/wrangler.local.toml
+```
+
+Recreate that file from the tracked one with `npx wrangler d1 list` if it is
+missing.
+
+Install Wrangler, create the D1 database, put its id in the local config, then
 apply the schema and deploy:
 
 ```sh

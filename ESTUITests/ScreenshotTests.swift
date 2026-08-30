@@ -46,6 +46,19 @@ final class ScreenshotTests: XCTestCase {
         tapFirst(app, labels: ["The mathematics"])
         XCTAssertTrue(app.staticTexts["The mathematics"].waitForExistence(timeout: 5))
         capture(app, "mathematics")
+
+        // App Store Connect requires a review screenshot for every in-app
+        // purchase, showing the purchase inside the app. This capture is not a
+        // marketing panel: product-page.json does not reference it.
+        app.terminate()
+        launch(app)
+        tapFirst(app, labels: ["Settings"])
+        // Support sits near the bottom of the Settings form. The element
+        // exists immediately but is not hittable until it scrolls into view,
+        // and XCUITest never scrolls on its own.
+        scrollToTap(app, label: "Support EST")
+        XCTAssertTrue(app.staticTexts["One-time gift. No subscription."].waitForExistence(timeout: 5))
+        capture(app, "support")
     }
 
     @MainActor
@@ -84,6 +97,28 @@ final class ScreenshotTests: XCTestCase {
             }
         }
         XCTFail("Could not find any of: \(labels.joined(separator: ", "))")
+    }
+
+    @MainActor
+    private func scrollToTap(
+        _ app: XCUIApplication,
+        label: String,
+        maxSwipes: Int = 8
+    ) {
+        // A SwiftUI Form is lazy: a row far below the fold is absent from the
+        // accessibility tree entirely, not merely unhittable. So re-check
+        // existence after every scroll rather than waiting for it up front.
+        for _ in 0..<maxSwipes {
+            let button = app.buttons[label]
+            if button.exists, button.isHittable {
+                button.tap()
+                Thread.sleep(forTimeInterval: 0.8)
+                return
+            }
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 0.4)
+        }
+        XCTFail("\(label) never appeared after \(maxSwipes) scrolls")
     }
 
     @MainActor

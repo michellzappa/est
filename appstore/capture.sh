@@ -63,6 +63,7 @@ xcrun xcresulttool export attachments --path "$RESULT" --output-path "$OUT" >/de
 python3 - "$OUT" <<'PY'
 import json
 import os
+import re
 import sys
 
 directory = sys.argv[1]
@@ -75,7 +76,10 @@ for attachment in manifest[0]["attachments"]:
     if not os.path.exists(source):
         continue
     name = attachment["suggestedHumanReadableName"].split("_0_")[0]
-    if name.startswith("00-"):
+    # Keep only the deliberate captures. A failed run also exports UI
+    # hierarchies, debug descriptions, synthesized events, snapshots and a
+    # screen recording, which otherwise pile up in raw/.
+    if not re.fullmatch(r"[a-z0-9-]+(\.png)?", name) or name.startswith("00-"):
         os.remove(source)
         continue
     if not name.endswith((".png", ".txt")):

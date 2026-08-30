@@ -12,3 +12,6 @@ build/
 
 # asc CLI build artifacts and reports (26MB+ of ipa/xcarchive per publish)
 .asc/
+
+# Local Wrangler config holding the real D1 database id
+telemetry/wrangler.local.toml
