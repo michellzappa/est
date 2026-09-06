@@ -300,6 +300,13 @@ private struct ESTColorBlindAssistKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+/// How the cards face. A game screen sets this on its board; every `CardView`
+/// under it turns its symbols by that angle. Only the symbols turn, so the
+/// grid keeps the same cards in the same cells.
+private struct ESTCardRotationKey: EnvironmentKey {
+    static let defaultValue = Angle.zero
+}
+
 extension EnvironmentValues {
     var estReduceMotion: Bool {
         get { self[ESTReduceMotionKey.self] }
@@ -314,5 +321,10 @@ extension EnvironmentValues {
     var estColorBlindAssist: Bool {
         get { self[ESTColorBlindAssistKey.self] }
         set { self[ESTColorBlindAssistKey.self] = newValue }
+    }
+
+    var estCardRotation: Angle {
+        get { self[ESTCardRotationKey.self] }
+        set { self[ESTCardRotationKey.self] = newValue }
     }
 }

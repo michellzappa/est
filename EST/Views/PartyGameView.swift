@@ -7,8 +7,9 @@ struct PartyGameView: View {
     @State private var session: PartySession
     @State private var pileFrames = PileFrames()
     @State private var showExitConfirm = false
-    /// How the table faces. Two players sit opposite each other, so the step
-    /// is half a turn; four players sit on all four edges, so it is a quarter.
+    /// How the card symbols face. Two players sit opposite each other, so the
+    /// step is half a turn; four players sit on all four edges, so it is a
+    /// quarter. The grid itself never moves.
     @State private var boardRotation: Angle = .zero
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     var onExit: () -> Void
@@ -32,13 +33,6 @@ struct PartyGameView: View {
 
     private var flipStep: Angle {
         .degrees(usesFourPlayerLayout ? 90 : 180)
-    }
-
-    /// A quarter-turned board draws its rows across the screen's width. The
-    /// four-player layout fits the cards to the swapped box so the table never
-    /// reaches into a seat.
-    private var boardIsQuarterTurned: Bool {
-        Int(boardRotation.degrees.rounded()) % 180 != 0
     }
 
     var body: some View {
@@ -173,15 +167,13 @@ struct PartyGameView: View {
                 proxy.size.height
                     - (seatThickness + edgeGap) * 2
             )
-            let boardBoxWidth = boardIsQuarterTurned ? availableBoardHeight : availableBoardWidth
-            let boardBoxHeight = boardIsQuarterTurned ? availableBoardWidth : availableBoardHeight
             let widthLimitedCardSide = max(
                 1,
-                (boardBoxWidth - gridGap * 2) / 3
+                (availableBoardWidth - gridGap * 2) / 3
             )
             let fittedCardSide = min(
                 widthLimitedCardSide,
-                max(1, (boardBoxHeight - CGFloat(rows - 1) * gridGap) / CGFloat(rows))
+                max(1, (availableBoardHeight - CGFloat(rows - 1) * gridGap) / CGFloat(rows))
             )
             // Leave a generous visual moat between the table and all four
             // player controls. The board still responds to available space,
@@ -254,8 +246,7 @@ struct PartyGameView: View {
             )
             .padding(.bottom, 6)
         }
-        .rotationEffect(boardRotation)
-        .animation(.spring(duration: 0.45), value: boardRotation)
+        .environment(\.estCardRotation, boardRotation)
     }
 
     private var exitButton: some View {

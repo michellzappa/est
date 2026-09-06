@@ -89,12 +89,13 @@ iPhone and iPad are both mandatory while TARGETED_DEVICE_FAMILY is "1,2".
   `wasPaused`, so it keeps a personal best and never reaches the leaderboard.
   Ending a game from the exit dialog clears the save, because the dialog
   promises the run is lost. Party and network runs are never saved.
-- `GameFlipButton` turns the table to face another player. It sits opposite
-  `GameExitButton` in the same chrome row, and only on shared-device screens:
-  solo and local party. A network game gives every player their own device, so
-  it has no flip button. The step is half a turn for one or two seats and a
-  quarter turn for four. The four-player layout fits the cards to the swapped
-  box while quarter-turned, so a rotated table never reaches into a seat.
+- `GameFlipButton` turns the card symbols to face another player, through the
+  `estCardRotation` environment value that `CardView` reads. Only the symbols
+  turn: the grid keeps the same cards in the same cells, so a player reading
+  the table does not lose their place. It sits opposite `GameExitButton` in the
+  same chrome row, and only on shared-device screens: solo and local party. A
+  network game gives every player their own device, so it has no flip button.
+  The step is half a turn for one or two seats and a quarter turn for four.
 - `PartySession` wraps `GameEngine` for one-device multiplayer. Solo views talk
   to `GameEngine` directly.
 - Multi-device party (`NetworkPartySession`) runs over a `GKMatch` (online or

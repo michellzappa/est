@@ -30,6 +30,19 @@ struct PileFramesKey: PreferenceKey {
     }
 }
 
+/// Lines the progress bar up with the middle of the pile cards rather than the
+/// middle of the whole pile column. The counts and labels below the cards would
+/// otherwise pull the bar down.
+private enum PileCardCenter: AlignmentID {
+    static func defaultValue(in context: ViewDimensions) -> CGFloat {
+        context[VerticalAlignment.center]
+    }
+}
+
+extension VerticalAlignment {
+    static let pileCardCenter = VerticalAlignment(PileCardCenter.self)
+}
+
 enum PileFrameTarget: Equatable {
     case draw
     case done
@@ -67,7 +80,7 @@ struct PilesView: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .pileCardCenter, spacing: 14) {
             PileStack(
                 label: "deck",
                 count: deckCount,
@@ -144,6 +157,8 @@ struct DeckProgressBar: View {
     var setsOnTable: Int?
     var totalCards = 81
 
+    private static let barHeight: CGFloat = 10
+
     var body: some View {
         VStack(spacing: 6) {
             GeometryReader { proxy in
@@ -174,14 +189,24 @@ struct DeckProgressBar: View {
                         }
                 }
             }
-            .frame(height: 10)
+            .frame(height: Self.barHeight)
             .animation(.spring(duration: 0.5), value: doneCount)
             .animation(.spring(duration: 0.5), value: deckCount)
 
-            Text("\(doneCount / 3) of \(totalCards / 3)" + (setsOnTable.map { " · \($0) on table" } ?? ""))
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
+            VStack(spacing: 1) {
+                Text("\(doneCount / 3) of \(totalCards / 3)")
+                    .font(.headline.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                if let setsOnTable {
+                    Text("\(setsOnTable) set\(setsOnTable == 1 ? "" : "s") visible")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
+        // The bar is the first thing in this column, so its middle sits half
+        // a bar height down.
+        .alignmentGuide(.pileCardCenter) { _ in Self.barHeight / 2 }
     }
 }
 
@@ -242,6 +267,9 @@ struct PileStack: View {
                     .textCase(.uppercase)
             }
         }
+        // The card box leads this column, and it carries 4 points of padding
+        // on each side, so its middle sits at half that box.
+        .alignmentGuide(.pileCardCenter) { _ in (side + 8) / 2 }
     }
 
     @ViewBuilder

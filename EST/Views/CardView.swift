@@ -29,6 +29,7 @@ struct CardView: View {
     @Environment(\.estReduceMotion) private var reduceMotion
     @Environment(\.estHighContrast) private var highContrast
     @Environment(\.estColorBlindAssist) private var colorBlindAssist
+    @Environment(\.estCardRotation) private var cardRotation
 
     private static let referenceCardSide: CGFloat = 100
     private static let symbolGrowthRate = 2.0 / 3.0
@@ -81,6 +82,10 @@ struct CardView: View {
                     )
 
                 symbols(side: side)
+                    // Only the symbols turn. The card keeps its cell, so the
+                    // grid a player is reading does not move under them.
+                    .rotationEffect(cardRotation)
+                    .animation(.spring(duration: 0.45), value: cardRotation)
 
                 if colorBlindAssist {
                     Text(card.tint.accessibilityMarker)

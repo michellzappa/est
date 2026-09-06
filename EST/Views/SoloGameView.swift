@@ -78,8 +78,7 @@ struct SoloGameView: View {
                 }
             }
             .animation(.spring(duration: 0.3), value: engine.isPaused)
-            .rotationEffect(boardRotation)
-            .animation(.spring(duration: 0.45), value: boardRotation)
+            .environment(\.estCardRotation, boardRotation)
             PilesView(engine: engine)
                 .padding(.horizontal, 6)
         }
@@ -274,18 +273,14 @@ struct SoloGameView: View {
                         }
                     } label: {
                         Image(systemName: hintUsed ? "lightbulb.fill" : "lightbulb")
-                            .font(.title3)
-                            .foregroundStyle(hintUsed ? .orange : .secondary)
                     }
+                    .buttonStyle(.game(.quiet, tint: .third, size: .icon))
                     .disabled(engine.isFinished)
                     .accessibilityLabel("Hint")
                     .accessibilityHint(hintUsed
                         ? "Reveal a card from a set"
                         : "Ask for a hint. This run will not appear on the leaderboard")
                 }
-                Text("\(engine.setsFound)/\(engine.setsTotal)")
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.secondary)
             }
         }
     }
