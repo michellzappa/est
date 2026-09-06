@@ -4,6 +4,8 @@ struct PlayStyleView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var stats = PlayerStats.shared
     @State private var showResetConfirmation = false
+    @AppStorage("bestSoloTime") private var bestSoloTime: Double = 0
+    @AppStorage("bestQuickTime") private var bestQuickTime: Double = 0
 
     private let traitNames = ["number", "color", "shape", "fill"]
 
@@ -99,6 +101,27 @@ struct PlayStyleView: View {
                 metric("Sets", value: "\(stats.correctSets)", tint: .blue)
                 metric("Accuracy", value: percentage(stats.accuracy), tint: .yellow)
                 metric("Rounds", value: "\(stats.completedSoloRounds)", tint: .red)
+            }
+
+            // Personal bests live here too. They were only visible on the
+            // leaderboard sheet, which needs Game Center to be useful.
+            if bestSoloTime > 0 || bestQuickTime > 0 {
+                Divider()
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 10
+                ) {
+                    metric(
+                        "Best 81",
+                        value: bestSoloTime > 0 ? TimeFormat.clock(bestSoloTime) : "—",
+                        tint: .red
+                    )
+                    metric(
+                        "Best 27",
+                        value: bestQuickTime > 0 ? TimeFormat.clock(bestQuickTime) : "—",
+                        tint: .blue
+                    )
+                }
             }
         }
         .sectionSurface()

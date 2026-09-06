@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var showSupport = false
     @State private var showTelemetryPreview = false
     @State private var showResetStatsConfirmation = false
+    @State private var showPlayStyle = false
 
     var body: some View {
         NavigationStack {
@@ -152,6 +153,18 @@ struct SettingsView: View {
                 }
 
                 Section("Data") {
+                    Button {
+                        showPlayStyle = true
+                    } label: {
+                        HStack {
+                            Text("Your play style")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chart.bar.xaxis")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     Button("Reset local stats", role: .destructive) {
                         showResetStatsConfirmation = true
                     }
@@ -257,6 +270,9 @@ struct SettingsView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .sheet(isPresented: $showSupport) {
                 SupportView()
+            }
+            .sheet(isPresented: $showPlayStyle) {
+                PlayStyleView()
             }
             .sheet(isPresented: $showFeedback) {
                 FeedbackView()
