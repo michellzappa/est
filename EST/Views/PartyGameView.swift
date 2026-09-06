@@ -420,6 +420,7 @@ private struct BuzzButton: View {
 }
 
 private struct PartyGameOverView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var winnerSize: CGFloat = 34
     let session: PartySession
     let onExit: () -> Void
 
@@ -444,7 +445,7 @@ private struct PartyGameOverView: View {
             VaryingTitleView(fontSize: 40)
             let winners = session.winners
             Text(winners.count == 1 ? "\(winners[0].name) wins" : "Tie game")
-                .font(.system(size: 34, weight: .black, design: .rounded))
+                .font(.system(size: winnerSize, weight: .black, design: .rounded))
                 .foregroundStyle(winners.count == 1 ? winners[0].color : .primary)
 
             VStack(spacing: 8) {

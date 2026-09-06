@@ -3,6 +3,7 @@ import SwiftUI
 /// Multi-device party: every player holds their own phone. Each player's
 /// collected-card deck is shown beside their player controls or summary.
 struct NetworkPartyGameView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var winnerSize: CGFloat = 30
     let session: NetworkPartySession
     @State private var pileFrames = PileFrames()
     @State private var showExitConfirm = false
@@ -91,7 +92,7 @@ struct NetworkPartyGameView: View {
                 endCard(celebratory: true) {
                     let winners = session.winners
                     Text(winners.count == 1 ? "\(winners[0].name) wins" : "Tie game")
-                        .font(.system(size: 30, weight: .black, design: .rounded))
+                        .font(.system(size: winnerSize, weight: .black, design: .rounded))
                         .foregroundStyle(winners.count == 1 ? winners[0].color : .primary)
                     scoreList
                 }

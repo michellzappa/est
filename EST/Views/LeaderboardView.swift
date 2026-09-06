@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct LeaderboardView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var trophySize: CGFloat = 42
+    @ScaledMetric(relativeTo: .largeTitle) private var bestTimeSize: CGFloat = 36
+
     private enum Tab: String, CaseIterable, Identifiable, Hashable {
         case solo
         case quick
@@ -53,7 +56,7 @@ struct LeaderboardView: View {
 
                 VStack(spacing: 10) {
                     Image(systemName: "trophy.fill")
-                        .font(.system(size: 42))
+                        .font(.system(size: trophySize))
                         .foregroundStyle(Card.Tint.yellow.color)
 
                     Text(selectedTab.title)
@@ -69,7 +72,7 @@ struct LeaderboardView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             Text(TimeFormat.clock(personalBest))
-                                .font(.system(size: 36, weight: .black, design: .rounded))
+                                .font(.system(size: bestTimeSize, weight: .black, design: .rounded))
                                 .monospacedDigit()
                         }
                         .padding(.top, 8)

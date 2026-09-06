@@ -291,6 +291,9 @@ struct SoloGameView: View {
 }
 
 struct SoloGameOverView: View {
+    /// The completion time is the point of this screen, so it scales with
+    /// the reader's text size instead of staying at a fixed 52 points.
+    @ScaledMetric(relativeTo: .largeTitle) private var timeSize: CGFloat = 52
     let time: TimeInterval
     let bestTime: Double
     var setsFound = 27
@@ -322,7 +325,7 @@ struct SoloGameOverView: View {
                 .foregroundStyle(.secondary)
 
             Text(TimeFormat.clock(time))
-                .font(.system(size: 52, weight: .black, design: .rounded))
+                .font(.system(size: timeSize, weight: .black, design: .rounded))
                 .monospacedDigit()
 
             Text("\(setsFound) sets, about \(String(format: "%.0f", time / Double(max(1, setsFound)))) seconds each")

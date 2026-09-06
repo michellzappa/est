@@ -3,6 +3,10 @@ import SwiftUI
 /// The optional patronage screen. It deliberately explains that the purchase
 /// changes nothing about gameplay, so it cannot be mistaken for a paywall.
 struct SupportView: View {
+    /// The mark and its glyph scale together, so the heart keeps its
+    /// proportion inside the circle at every text size.
+    @ScaledMetric(relativeTo: .largeTitle) private var markSide: CGFloat = 88
+    @ScaledMetric(relativeTo: .largeTitle) private var markGlyphSize: CGFloat = 34
     @Environment(\.dismiss) private var dismiss
     @Environment(SupportStore.self) private var store
     @State private var showThankYou = false
@@ -158,10 +162,10 @@ struct SupportView: View {
                     )
                 )
             Image(systemName: "heart.fill")
-                .font(.system(size: 34, weight: .bold))
+                .font(.system(size: markGlyphSize, weight: .bold))
                 .foregroundStyle(.white)
         }
-        .frame(width: 88, height: 88)
+        .frame(width: markSide, height: markSide)
         .shadow(color: Card.Tint.red.color.opacity(0.28), radius: 16, y: 8)
         .accessibilityHidden(true)
     }
@@ -181,6 +185,7 @@ struct SupportView: View {
 }
 
 private struct SupportThankYouView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var sealSize: CGFloat = 58
     @Environment(\.dismiss) private var dismiss
     var onUseFinish: () -> Void
 
@@ -193,7 +198,7 @@ private struct SupportThankYouView: View {
 
             VStack(spacing: 18) {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 58, weight: .bold))
+                    .font(.system(size: sealSize, weight: .bold))
                     .foregroundStyle(Card.Tint.yellow.color)
 
                 Text("Thank you")
