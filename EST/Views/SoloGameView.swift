@@ -15,6 +15,9 @@ struct SoloGameView: View {
     @State private var showExitConfirm = false
     @State private var showHintWarning = false
     @State private var lastMatchElapsed: TimeInterval = 0
+    /// Solo has one seat, so the table only ever turns to face someone
+    /// opposite: half a turn per tap.
+    @State private var boardRotation: Angle = .zero
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
@@ -75,6 +78,8 @@ struct SoloGameView: View {
                 }
             }
             .animation(.spring(duration: 0.3), value: engine.isPaused)
+            .rotationEffect(boardRotation)
+            .animation(.spring(duration: 0.45), value: boardRotation)
             PilesView(engine: engine)
                 .padding(.horizontal, 6)
         }
@@ -257,6 +262,9 @@ struct SoloGameView: View {
                     }
                 }
                 Spacer()
+                GameFlipButton(step: .degrees(180)) {
+                    boardRotation += .degrees(180)
+                }
                 if variant == .full {
                     Button {
                         if hintUsed {

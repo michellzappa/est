@@ -184,6 +184,28 @@ struct GameExitButton: View {
     }
 }
 
+/// Turns the table to face another player on a shared device. The step is the
+/// screen's own: half a turn where players sit across from each other, a
+/// quarter turn where they sit on all four edges. Paired with
+/// `GameExitButton` in the opposite corner of the same chrome row.
+struct GameFlipButton: View {
+    let step: Angle
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.clockwise.circle.fill")
+        }
+        .buttonStyle(.game(.quiet, tint: .second, size: .icon))
+        .accessibilityLabel("Turn the table")
+        .accessibilityHint(
+            step == .degrees(90)
+                ? "Rotates the cards a quarter turn"
+                : "Rotates the cards half a turn"
+        )
+    }
+}
+
 #Preview {
     VStack(spacing: 12) {
         Button("Solo 81") {}
