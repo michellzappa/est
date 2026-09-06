@@ -100,9 +100,21 @@ iPhone and iPad are both mandatory while TARGETED_DEVICE_FAMILY is "1,2".
   not fork them.
 - `BoardGridView` and `PilesView` take plain values (with engine convenience
   initializers) so local engines and remote snapshots share the same views.
-- Any player disconnect ends a network game. Real matchmaking needs the app
-  record + Game Center capability live in App Store Connect; two signed-in
-  devices (or device + simulator) are needed to test it.
+- A network game ends only when fewer than `PartySession.minimumPlayerCount`
+  devices remain. Otherwise the player leaves their seat and play continues;
+  their won cards stay out of play, so the deck math is unchanged.
+- Host migration: the lowest gamePlayerID among connected devices is host, so
+  a host that leaves hands the role to the next device. The new host rebuilds
+  authority from its last snapshot through `GameEngine.adoptAsHost`. The
+  snapshot carries `outOfPlayIDs` and per-player `collectedIDs`, all of them
+  cards that were face up, so nothing secret crosses the wire; the remaining
+  deck is reshuffled locally because its order was never sent. A trio that was
+  still celebrating resolves during the handover, and no claim survives it.
+  Palette slots are pinned per player in `colorIndexes`, so a departing player
+  does not recolor the rest.
+- Real matchmaking needs the app record + Game Center capability live in App
+  Store Connect; two signed-in devices (or device + simulator) are needed to
+  test it.
 - Game Center leaderboard IDs: `est.solo.completion.time` (full 81-card solo)
   and `est.quick.completion.time` (Quick 27). Scores are centiseconds
   (elapsed-time format, ascending). Both must be created in App Store Connect
@@ -250,5 +262,4 @@ availability bootstrap:
 
 ## Not built yet
 
-- Host migration: if the host disconnects mid-match, the game ends instead of
-  electing a new host.
+- Nothing tracked here right now.

@@ -29,10 +29,19 @@ struct NetSnapshot: Codable {
         var cardCount: Int
         var topCardID: Int?
         var lockRemaining: TimeInterval?
+        /// The cards this player won. Every one of them was face up on the
+        /// table, so this leaks nothing. A device that becomes host rebuilds
+        /// the piles from it.
+        var collectedIDs: [Int] = []
     }
 
     var players: [PlayerState]
     var tableIDs: [Int]
+    /// Every card that has left play, including a trio still celebrating and
+    /// the cards of a player who has left. A device that becomes host derives
+    /// the remaining deck from this and the table. The deck order itself never
+    /// crosses the wire, so no client can read the next card.
+    var outOfPlayIDs: [Int] = []
     var selectedIDs: [Int]
     var mismatchIDs: [Int]
     var mismatchToken: Int

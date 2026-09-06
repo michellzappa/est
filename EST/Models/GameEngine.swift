@@ -169,6 +169,53 @@ final class GameEngine {
         startInstant = ContinuousClock.now - .seconds(max(0, run.elapsed))
     }
 
+    /// Rebuilds the authoritative table on a device that has just become the
+    /// host of a network match. The tokens carry over so a client never sees a
+    /// counter run backwards.
+    ///
+    /// `celebrating` is a trio the departed host matched but never resolved.
+    /// Its cards already count for their collector, so this finishes the
+    /// celebration the way the old host would have: cards out of play,
+    /// replacements dealt.
+    func adoptAsHost(
+        table newTable: [Card],
+        done newDone: [Card],
+        deck newDeck: [Card],
+        celebrating: Set<Int>,
+        matchToken newMatchToken: Int,
+        mismatchToken newMismatchToken: Int,
+        dealToken newDealToken: Int
+    ) {
+        celebrationTask?.cancel()
+        celebrationIDs = []
+        lastMatchInstant = nil
+        variant = .full
+        deck = newDeck
+        table = newTable
+        done = newDone
+        selection = []
+        lastMismatch = []
+        mismatchReasons = []
+        matchToken = newMatchToken
+        mismatchToken = newMismatchToken
+        dealToken = newDealToken
+        isFinished = false
+        startInstant = .now
+        endInstant = nil
+        pauseStartInstant = nil
+        pausedTotal = .zero
+        wasPaused = false
+        let celebratingCards = table.filter { celebrating.contains($0.id) }
+        if celebratingCards.isEmpty {
+            if deck.isEmpty, Card.findSet(in: table) == nil {
+                isFinished = true
+                endInstant = .now
+            }
+        } else {
+            resolveMatched(celebratingCards)
+        }
+    }
+
     func elapsed() -> TimeInterval {
         guard let startInstant else { return 0 }
         let effectiveEnd = endInstant ?? pauseStartInstant ?? .now

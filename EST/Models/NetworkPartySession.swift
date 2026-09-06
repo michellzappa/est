@@ -25,7 +25,10 @@ final class NetworkPartySession {
     }
 
     let match: GKMatch
-    let isHost: Bool
+    /// Not fixed for the life of the match. The lowest gamePlayerID among the
+    /// devices still connected is the host, so a host that leaves hands the
+    /// role to the next device.
+    private(set) var isHost: Bool
     let localID = GKLocalPlayer.local.gamePlayerID
 
     // Display state. On the host this mirrors the engine; on clients it is
@@ -54,7 +57,12 @@ final class NetworkPartySession {
     private var collectedCards: [String: [Card]] = [:]
     private var claimRace = ClaimRace<String>()
     private var expiryTask: Task<Void, Never>?
-    private let remoteHost: GKPlayer?
+    private var remoteHost: GKPlayer?
+    /// Palette slots are pinned per player. A player who leaves must not
+    /// recolor everyone behind them.
+    private var colorIndexes: [String: Int] = [:]
+    /// Clients keep the last snapshot so one of them can become host from it.
+    private var lastSnapshot: NetSnapshot?
 
     private let proxy = MatchDelegateProxy()
 
@@ -69,18 +77,20 @@ final class NetworkPartySession {
         proxy.onData = { [weak self] data, player in
             DispatchQueue.main.async { self?.receive(data, from: player.gamePlayerID) }
         }
-        proxy.onStateChange = { [weak self] _, state in
+        proxy.onStateChange = { [weak self] player, state in
             DispatchQueue.main.async {
-                if state == .disconnected { self?.someoneLeft = true }
+                guard state == .disconnected else { return }
+                self?.playerLeft(player.gamePlayerID)
             }
         }
         match.delegate = proxy
 
         if isHost {
             roster = everyone.map { ($0.gamePlayerID, $0.displayName) }
-            for entry in roster {
+            for (index, entry) in roster.enumerated() {
                 scores[entry.id] = 0
                 collectedCards[entry.id] = []
+                colorIndexes[entry.id] = index % PartySession.palette.count
             }
             engine.onAutoAdvance = { [weak self] in self?.publishAndBroadcast() }
             engine.start()
@@ -198,11 +208,11 @@ final class NetworkPartySession {
         doneCount = engine.done.count
         doneTop = engine.done.last
         isFinished = engine.isFinished
-        players = roster.enumerated().map { index, entry in
+        players = roster.map { entry in
             return PlayerDisplay(
                 id: entry.id,
                 name: entry.name,
-                color: PartySession.palette[index % PartySession.palette.count].1,
+                color: PartySession.palette[colorIndexes[entry.id] ?? 0].1,
                 score: scores[entry.id] ?? 0,
                 cardCount: collectedCards[entry.id]?.count ?? 0,
                 topCard: collectedCards[entry.id]?.last,
@@ -212,20 +222,22 @@ final class NetworkPartySession {
 
         let now = Date.now
         let snapshot = NetSnapshot(
-            players: roster.enumerated().map { index, entry in
+            players: roster.map { entry in
                 NetSnapshot.PlayerState(
                     id: entry.id,
                     name: entry.name,
-                    colorIndex: index % PartySession.palette.count,
+                    colorIndex: colorIndexes[entry.id] ?? 0,
                     score: scores[entry.id] ?? 0,
                     cardCount: collectedCards[entry.id]?.count ?? 0,
                     topCardID: collectedCards[entry.id]?.last?.id,
                     lockRemaining: claimRace.lockDeadline(for: entry.id).flatMap {
                         $0 > now ? $0.timeIntervalSince(now) : nil
-                    }
+                    },
+                    collectedIDs: collectedCards[entry.id]?.map(\.id) ?? []
                 )
             },
             tableIDs: table.map(\.id),
+            outOfPlayIDs: engine.done.map(\.id) + Array(celebrationIDs),
             selectedIDs: Array(selectedIDs),
             mismatchIDs: Array(mismatchIDs),
             mismatchToken: mismatchToken,
@@ -312,6 +324,124 @@ final class NetworkPartySession {
             lockDeadlines: lockDeadlines
         )
         isFinished = snapshot.isFinished
+        lastSnapshot = snapshot
+    }
+
+    // MARK: - Leaving and host migration
+
+    /// Every device still in the match, lowest gamePlayerID first. The first
+    /// entry is the host.
+    private func connectedIDs(excluding leaver: String? = nil) -> [String] {
+        var ids = match.players.map(\.gamePlayerID) + [localID]
+        if let leaver {
+            ids.removeAll { $0 == leaver }
+        }
+        return ids.sorted()
+    }
+
+    private func playerLeft(_ playerID: String) {
+        guard !someoneLeft, !isFinished else { return }
+        let remaining = connectedIDs(excluding: playerID)
+        // A table needs two. Below that the game ends, as it always did.
+        guard remaining.count >= PartySession.minimumPlayerCount else {
+            expiryTask?.cancel()
+            expiryTask = nil
+            someoneLeft = true
+            return
+        }
+        if isHost {
+            dropFromRoster(playerID)
+            publishAndBroadcast()
+        } else {
+            adoptHost(remaining)
+        }
+    }
+
+    /// Host: a player left. Their cards stay out of play, so the deck math is
+    /// unchanged; only their seat goes away.
+    private func dropFromRoster(_ playerID: String) {
+        roster.removeAll { $0.id == playerID }
+        scores[playerID] = nil
+        collectedCards[playerID] = nil
+        colorIndexes[playerID] = nil
+        if claimRace.activePlayerID == playerID {
+            expiryTask?.cancel()
+            expiryTask = nil
+            _ = claimRace.releaseClaim(heldBy: playerID)
+            engine.clearSelection()
+        }
+    }
+
+    /// Client: point at whoever is host now, and take the role if it is this
+    /// device.
+    private func adoptHost(_ remaining: [String]) {
+        guard let hostID = remaining.first else {
+            someoneLeft = true
+            return
+        }
+        remoteHost = match.players.first { $0.gamePlayerID == hostID }
+        guard hostID == localID else { return }
+        promoteToHost(connected: Set(remaining))
+    }
+
+    /// Rebuild authority from the last snapshot. Everything needed is public
+    /// information: the table, the cards out of play, and each player's pile.
+    /// The remaining deck is reshuffled here because its order never crossed
+    /// the wire, and nobody has seen it.
+    private func promoteToHost(connected: Set<String>) {
+        guard let snapshot = lastSnapshot else {
+            someoneLeft = true
+            return
+        }
+        let survivors = snapshot.players.filter { connected.contains($0.id) }
+        guard survivors.count >= PartySession.minimumPlayerCount else {
+            someoneLeft = true
+            return
+        }
+
+        roster = survivors.map { ($0.id, $0.name) }
+        scores = [:]
+        collectedCards = [:]
+        colorIndexes = [:]
+        for state in survivors {
+            scores[state.id] = state.score
+            collectedCards[state.id] = state.collectedIDs.map(Card.init(id:))
+            colorIndexes[state.id] = state.colorIndex
+        }
+
+        let celebrating = Set(snapshot.celebrationIDs)
+        let tableCards = snapshot.tableIDs.map(Card.init(id:))
+        let doneCards = snapshot.outOfPlayIDs
+            .filter { !celebrating.contains($0) }
+            .map(Card.init(id:))
+        var unavailable = Set(snapshot.outOfPlayIDs)
+        unavailable.formUnion(snapshot.tableIDs)
+        let deckCards = Card.fullDeck.filter { !unavailable.contains($0.id) }.shuffled()
+
+        engine.onAutoAdvance = { [weak self] in self?.publishAndBroadcast() }
+        engine.adoptAsHost(
+            table: tableCards,
+            done: doneCards,
+            deck: deckCards,
+            celebrating: celebrating,
+            matchToken: snapshot.matchToken,
+            mismatchToken: snapshot.mismatchToken,
+            dealToken: snapshot.dealToken
+        )
+        // No claim survives the handover. A buzz in flight to a device that is
+        // gone would otherwise hold the table for its full window.
+        claimRace.adoptAuthoritativeState(
+            activePlayerID: nil,
+            claimDeadline: nil,
+            lockDeadlines: [:]
+        )
+        expiryTask?.cancel()
+        expiryTask = nil
+        penaltyToken = snapshot.penaltyToken
+        lastCollectorID = snapshot.lastCollectorID
+        remoteHost = nil
+        isHost = true
+        publishAndBroadcast()
     }
 
     private final class MatchDelegateProxy: NSObject, GKMatchDelegate {
