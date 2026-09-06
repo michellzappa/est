@@ -7,9 +7,8 @@ struct PartyGameView: View {
     @State private var session: PartySession
     @State private var pileFrames = PileFrames()
     @State private var showExitConfirm = false
-    /// How the card symbols face. Two players sit opposite each other, so the
-    /// step is half a turn; four players sit on all four edges, so it is a
-    /// quarter. The grid itself never moves.
+    /// How the card symbols face. A quarter turn per tap, so a duel can stop
+    /// halfway and read the cards from the side. The grid itself never moves.
     @State private var boardRotation: Angle = .zero
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     var onExit: () -> Void
@@ -29,10 +28,6 @@ struct PartyGameView: View {
 
     private var usesFourPlayerLayout: Bool {
         session.players.count == PartySession.maximumPlayerCount
-    }
-
-    private var flipStep: Angle {
-        .degrees(usesFourPlayerLayout ? 90 : 180)
     }
 
     var body: some View {
@@ -124,8 +119,8 @@ struct PartyGameView: View {
         HStack {
             exitButton
             Spacer()
-            GameFlipButton(step: flipStep) {
-                boardRotation += flipStep
+            GameFlipButton {
+                boardRotation += GameFlipButton.step
             }
         }
         .frame(minHeight: GameButtonStyle.Size.icon.height)

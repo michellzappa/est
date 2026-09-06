@@ -95,7 +95,8 @@ iPhone and iPad are both mandatory while TARGETED_DEVICE_FAMILY is "1,2".
   the table does not lose their place. It sits opposite `GameExitButton` in the
   same chrome row, and only on shared-device screens: solo and local party. A
   network game gives every player their own device, so it has no flip button.
-  The step is half a turn for one or two seats and a quarter turn for four.
+  Every tap is a quarter turn, on every screen: half a turn moves only
+  triangles and the three-symbol arrangement, so it reads as almost nothing.
 - `PartySession` wraps `GameEngine` for one-device multiplayer. Solo views talk
   to `GameEngine` directly.
 - Multi-device party (`NetworkPartySession`) runs over a `GKMatch` (online or

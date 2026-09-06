@@ -15,8 +15,7 @@ struct SoloGameView: View {
     @State private var showExitConfirm = false
     @State private var showHintWarning = false
     @State private var lastMatchElapsed: TimeInterval = 0
-    /// Solo has one seat, so the table only ever turns to face someone
-    /// opposite: half a turn per tap.
+    /// How the card symbols face. A quarter turn per tap.
     @State private var boardRotation: Angle = .zero
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -261,8 +260,8 @@ struct SoloGameView: View {
                     }
                 }
                 Spacer()
-                GameFlipButton(step: .degrees(180)) {
-                    boardRotation += .degrees(180)
+                GameFlipButton {
+                    boardRotation += GameFlipButton.step
                 }
                 if variant == .full {
                     Button {
