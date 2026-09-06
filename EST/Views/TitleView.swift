@@ -49,8 +49,13 @@ struct TitleView: View {
     var onParty: (Int) -> Void
     var onOnlineParty: () -> Void
     var onLeaderboards: () -> Void
+    var onResumeSolo: (GameEngine.Variant) -> Void = { _ in }
     @Binding var showSettings: Bool
 
+    /// An interrupted solo run, read when the title screen appears. While one
+    /// exists, Resume is the primary action and Solo 81 steps down, so the
+    /// screen still has exactly one primary button.
+    @State private var savedRun: GameEngine.SavedRun?
     @State private var showRules = false
     @State private var showPlayStyle = false
     @State private var demoCards = Card.randomValidSet()
@@ -84,6 +89,13 @@ struct TitleView: View {
         .sheet(isPresented: $showPlayStyle) {
             PlayStyleView()
         }
+        .onAppear {
+            // Marketing captures need the same title screen on every run, so
+            // a leftover run never adds a button there.
+            savedRun = ProcessInfo.processInfo.arguments.contains("-ESTScreenshotMode")
+                ? nil
+                : SoloRunStore.load()
+        }
     }
 
     private func titleContent(supportsFourPlayerMode: Bool) -> some View {
@@ -113,6 +125,9 @@ struct TitleView: View {
             }
 
             VStack(spacing: 12) {
+                if savedRun != nil {
+                    resumeButton
+                }
                 modeButtons(supportsFourPlayerMode: supportsFourPlayerMode)
                 onlinePartyButton(supportsFourPlayerMode: supportsFourPlayerMode)
                 playStyleButton
@@ -187,7 +202,22 @@ struct TitleView: View {
         Button(action: onSolo) {
             Label("Solo 81", systemImage: "timer")
         }
-        .buttonStyle(.game(.primary, tint: .second, size: .large))
+        .buttonStyle(.game(savedRun == nil ? .primary : .secondary, tint: .second, size: .large))
+    }
+
+    @ViewBuilder
+    private var resumeButton: some View {
+        if let savedRun {
+            let variant = GameEngine.Variant(rawValue: savedRun.variant) ?? .full
+            let found = savedRun.done.count / 3
+            let total = (variant == .quick ? 27 : 81) / 3
+            Button {
+                onResumeSolo(variant)
+            } label: {
+                Label("Resume, \(found) of \(total)", systemImage: "play.fill")
+            }
+            .buttonStyle(.game(.primary, tint: .first, size: .large))
+        }
     }
 
     private var quickSoloButton: some View {

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct SoloGameView: View {
     var variant: GameEngine.Variant = .full
+    /// Set by the title screen's Resume entry. The run is read once, on
+    /// appear; the store is the source, not this flag.
+    var resumesSavedRun = false
     @State private var engine = GameEngine()
     @AppStorage("bestSoloTime") private var bestFullTime: Double = 0
     @AppStorage("bestQuickTime") private var bestQuickTime: Double = 0
@@ -80,7 +83,10 @@ struct SoloGameView: View {
         .onPreferenceChange(PileFramesKey.self) { pileFrames = $0 }
         .background(Appearance.shared.gameBackground)
         .confirmationDialog("End this game?", isPresented: $showExitConfirm, titleVisibility: .visible) {
-            Button("End game", role: .destructive) { onExit() }
+            Button("End game", role: .destructive) {
+                SoloRunStore.clear()
+                onExit()
+            }
             Button("Keep playing", role: .cancel) {}
         } message: {
             Text("The run and its time are lost.")
@@ -114,6 +120,7 @@ struct SoloGameView: View {
                 }
             } else {
                 engine.pause()
+                saveRun()
             }
         }
         .sensoryFeedback(
@@ -158,6 +165,7 @@ struct SoloGameView: View {
                         hintedIDs = []
                         lastMatchElapsed = 0
                         engine.start(variant: variant)
+                        saveRun()
                         ESTTelemetry.record(.gamesStarted)
                         ESTTelemetry.record(variant == .quick
                             ? .quickSoloStarted
@@ -169,11 +177,23 @@ struct SoloGameView: View {
         }
         .onAppear {
             lastMatchElapsed = 0
-            engine.start(variant: variant)
+            // The engine advances by itself when a celebration ends. That is
+            // the moment the table changes, so it is the moment to save.
+            engine.onAutoAdvance = { saveRun() }
+            if resumesSavedRun, let run = SoloRunStore.load() {
+                hintUsed = run.hintUsed
+                engine.restore(run)
+            } else {
+                engine.start(variant: variant)
+            }
             ESTTelemetry.record(.gamesStarted)
             ESTTelemetry.record(variant == .quick
                 ? .quickSoloStarted
                 : .fullSoloStarted)
+            saveRun()
+        }
+        .onDisappear {
+            engine.onAutoAdvance = nil
         }
         .onChange(of: engine.table) {
             hintedIDs = []
@@ -184,6 +204,7 @@ struct SoloGameView: View {
         }
         .onChange(of: engine.isFinished) { _, finished in
             if finished {
+                SoloRunStore.clear()
                 GameAudio.shared.play(.completion)
                 PlayerStats.shared.recordCompletedRound(variant)
                 ESTTelemetry.record(.gamesCompleted)
@@ -269,6 +290,10 @@ struct SoloGameView: View {
         hintUsed = true
         ESTTelemetry.record(.hintUsed)
         GameAudio.shared.play(.hint)
+    }
+
+    private func saveRun() {
+        SoloRunStore.save(engine.savedRun(hintUsed: hintUsed))
     }
 
     private func select(_ card: Card) {

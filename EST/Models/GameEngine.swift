@@ -118,6 +118,57 @@ final class GameEngine {
         startInstant = .now
     }
 
+    /// Everything needed to rebuild an interrupted run. Cards travel as ids
+    /// (0...80), the same encoding the network snapshots use.
+    struct SavedRun: Codable, Equatable {
+        var variant: Int
+        var deck: [Int]
+        var table: [Int]
+        var done: [Int]
+        var elapsed: TimeInterval
+        var hintUsed: Bool
+        var savedAt: Date
+    }
+
+    /// A run worth restoring. A finished run and a run that never started
+    /// return nil, so the caller never offers to resume nothing.
+    func savedRun(hintUsed: Bool) -> SavedRun? {
+        guard startInstant != nil, !isFinished else { return nil }
+        return SavedRun(
+            variant: variant.rawValue,
+            deck: deck.map(\.id),
+            table: table.map(\.id),
+            done: done.map(\.id),
+            elapsed: elapsed(),
+            hintUsed: hintUsed,
+            savedAt: .now
+        )
+    }
+
+    /// Rebuilds a run saved earlier. The restored run counts as paused: the
+    /// clock stopped outside the app, so the time keeps a personal best but
+    /// never reaches the competitive leaderboard.
+    func restore(_ run: SavedRun) {
+        celebrationTask?.cancel()
+        celebrationIDs = []
+        lastMatchInstant = nil
+        dealToken = 0
+        mismatchToken = 0
+        lastMismatch = []
+        mismatchReasons = []
+        variant = Variant(rawValue: run.variant) ?? .full
+        deck = run.deck.map(Card.init(id:))
+        table = run.table.map(Card.init(id:))
+        done = run.done.map(Card.init(id:))
+        selection = []
+        endInstant = nil
+        pauseStartInstant = nil
+        pausedTotal = .zero
+        wasPaused = true
+        isFinished = deck.isEmpty && Card.findSet(in: table) == nil
+        startInstant = ContinuousClock.now - .seconds(max(0, run.elapsed))
+    }
+
     func elapsed() -> TimeInterval {
         guard let startInstant else { return 0 }
         let effectiveEnd = endInstant ?? pauseStartInstant ?? .now

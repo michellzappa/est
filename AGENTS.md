@@ -83,6 +83,12 @@ iPhone and iPad are both mandatory while TARGETED_DEVICE_FAMILY is "1,2".
 - Liquid Glass: use the `glassPanel`/`glassButtonSurface` helpers in
   `GlassHelpers.swift` (iOS 26 glass, material fallback). Do not call
   `glassEffect` directly elsewhere.
+- One interrupted solo run survives a relaunch. `GameEngine.savedRun(hintUsed:)`
+  and `restore(_:)` move the table as card ids; `SoloRunStore` holds the JSON
+  in UserDefaults and drops a run older than three days. A restored run sets
+  `wasPaused`, so it keeps a personal best and never reaches the leaderboard.
+  Ending a game from the exit dialog clears the save, because the dialog
+  promises the run is lost. Party and network runs are never saved.
 - `PartySession` wraps `GameEngine` for one-device multiplayer. Solo views talk
   to `GameEngine` directly.
 - Multi-device party (`NetworkPartySession`) runs over a `GKMatch` (online or

@@ -25,6 +25,7 @@ struct RootView: View {
     enum Screen: Equatable {
         case title
         case solo(GameEngine.Variant)
+        case resumeSolo(GameEngine.Variant)
         case party(Int)
         case networkParty
     }
@@ -57,7 +58,7 @@ struct RootView: View {
     private var isGameScreen: Bool {
         switch screen {
         case .title: false
-        case .solo, .party, .networkParty: true
+        case .solo, .resumeSolo, .party, .networkParty: true
         }
     }
 
@@ -87,12 +88,20 @@ struct RootView: View {
                     onParty: { screen = .party($0) },
                     onOnlineParty: { showMatchmaker = true },
                     onLeaderboards: { showLeaderboards = true },
+                    onResumeSolo: { screen = .resumeSolo($0) },
                     showSettings: $showSettings
                 )
                 .transition(.opacity)
             case .solo(let variant):
                 SoloGameView(variant: variant, onExit: { screen = .title })
                     .transition(.move(edge: .trailing).combined(with: .opacity))
+            case .resumeSolo(let variant):
+                SoloGameView(
+                    variant: variant,
+                    resumesSavedRun: true,
+                    onExit: { screen = .title }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             case .party(let count):
                 PartyGameView(playerCount: count, onExit: { screen = .title })
                     .transition(.move(edge: .trailing).combined(with: .opacity))
