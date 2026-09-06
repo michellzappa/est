@@ -439,7 +439,7 @@ struct MathVisualizerView: View {
             )
             .overlay {
                 if isThird {
-                    RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
+                    CardChrome.shape(side: side)
                         .stroke(Card.Tint.yellow.color, lineWidth: 2)
                         .padding(1)
                 }

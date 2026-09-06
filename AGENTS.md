@@ -75,6 +75,11 @@ iPhone and iPad are both mandatory while TARGETED_DEVICE_FAMILY is "1,2".
   the active card palette, never the system accent), and a row is one size so
   it cannot taper or wrap. Do not use `.bordered` or
   `.borderedProminent` in game UI. Settings is a Form and keeps native rows.
+- Every card-shaped surface draws through `CardChrome` in `CardView.swift`:
+  the face, the back, a pile layer, an empty slot. It owns the corner
+  fraction, the surface color, and the two border colors. Do not write a
+  `RoundedRectangle` for a card anywhere else. The piles once used their own
+  radius and their own gray, so a themed board sat above mismatched piles.
 - Liquid Glass: use the `glassPanel`/`glassButtonSurface` helpers in
   `GlassHelpers.swift` (iOS 26 glass, material fallback). Do not call
   `glassEffect` directly elsewhere.
@@ -241,4 +246,3 @@ availability bootstrap:
 
 - Host migration: if the host disconnects mid-match, the game ends instead of
   electing a new host.
-- Sounds.

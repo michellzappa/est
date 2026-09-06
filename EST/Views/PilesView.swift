@@ -100,9 +100,9 @@ struct PlayerDeckView: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            CardChrome.shape(side: side)
                 .strokeBorder(
-                    Color.primary.opacity(0.2),
+                    CardChrome.slotBorder,
                     style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
                 )
                 .frame(width: side, height: side)
@@ -202,9 +202,9 @@ struct PileStack: View {
         VStack(spacing: 4) {
             ZStack {
                 if count == 0 {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    CardChrome.shape(side: side)
                         .strokeBorder(
-                            Color.primary.opacity(0.2),
+                            CardChrome.slotBorder,
                             style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
                         )
                         .frame(width: side, height: side)
@@ -254,33 +254,34 @@ struct PileStack: View {
             CardBackView()
                 .frame(width: side, height: side)
         } else {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+            CardChrome.shape(side: side)
+                .fill(CardChrome.surface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                    CardChrome.shape(side: side)
+                        .strokeBorder(CardChrome.border, lineWidth: 1)
                 )
                 .frame(width: side, height: side)
         }
     }
 }
 
-/// Card back: neutral tile with the three elementary shapes as a motif.
-/// Follows the system color scheme so it never reads as the "wrong mode".
+/// Card back: the same tile as a card face, shaded, with the three elementary
+/// shapes as a motif. It builds on `CardChrome`, so a theme or an appearance
+/// change moves the back and the face together.
 struct CardBackView: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         GeometryReader { proxy in
             let side = proxy.size.width
-            let backColors = colorScheme == .dark
-                ? [Color(white: 0.16), Color(white: 0.28)]
-                : [Color(white: 0.85), Color(white: 0.95)]
             ZStack {
-                RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
+                CardChrome.shape(side: side)
+                    .fill(CardChrome.surface)
+                CardChrome.shape(side: side)
                     .fill(
                         LinearGradient(
-                            colors: backColors,
+                            colors: [
+                                Color.primary.opacity(0.14),
+                                Color.primary.opacity(0.03),
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -291,8 +292,8 @@ struct CardBackView: View {
                     SymbolView(symbol: .triangle, fill: .outline, tint: .yellow)
                 }
                 .frame(width: side * 0.62)
-                RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                CardChrome.shape(side: side)
+                    .strokeBorder(CardChrome.border, lineWidth: 1)
             }
         }
         .aspectRatio(1, contentMode: .fit)

@@ -179,6 +179,18 @@ final class Appearance {
             default: Color.primary.opacity(0.12)
             }
         }
+
+        /// The dashed outline of an empty pile slot. Same hue as `cardBorder`,
+        /// drawn stronger because no card sits under it.
+        var cardSlotBorder: Color {
+            switch self {
+            case .dusk: dynamicColor(
+                light: UIColor(red: 0.68, green: 0.47, blue: 0.16, alpha: 0.75),
+                dark: UIColor(red: 0.85, green: 0.66, blue: 0.30, alpha: 0.75)
+            )
+            default: Color.primary.opacity(0.22)
+            }
+        }
     }
 
     var colorSchemeSetting: ColorSchemeSetting {

@@ -1,6 +1,22 @@
 import Foundation
 import SwiftUI
 
+/// The one source for every card-shaped surface: the face, the back, a pile
+/// layer, an empty slot. They all take their silhouette and their colors from
+/// here, so a pile never shows a different corner radius or a different
+/// surface color than the cards it holds.
+enum CardChrome {
+    static let cornerFraction: CGFloat = 0.12
+
+    static func shape(side: CGFloat) -> RoundedRectangle {
+        RoundedRectangle(cornerRadius: side * cornerFraction, style: .continuous)
+    }
+
+    static var surface: Color { Appearance.shared.theme.cardSurface }
+    static var border: Color { Appearance.shared.theme.cardBorder }
+    static var slotBorder: Color { Appearance.shared.theme.cardSlotBorder }
+}
+
 /// A square card. Symbol placement by count: 1 centered, 2 side by side,
 /// 3 on the vertices of an equilateral triangle centered in the card.
 struct CardView: View {
@@ -34,8 +50,8 @@ struct CardView: View {
             let hoverTiltY = !reduceMotion && isHovering ? (normalizedHoverX - 0.5) * 7 : 0
 
             ZStack {
-                RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
-                    .fill(Appearance.shared.theme.cardSurface)
+                CardChrome.shape(side: side)
+                    .fill(CardChrome.surface)
                     .shadow(
                         color: .black.opacity(isSelected ? 0.35 : isHovering ? 0.22 : 0.15),
                         radius: isSelected ? side * 0.06 : isHovering ? side * 0.08 : side * 0.03,
@@ -52,15 +68,15 @@ struct CardView: View {
                         startRadius: 0,
                         endRadius: side * 0.68
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: side * 0.12, style: .continuous))
+                    .clipShape(CardChrome.shape(side: side))
                 }
-                RoundedRectangle(cornerRadius: side * 0.12, style: .continuous)
+                CardChrome.shape(side: side)
                     .strokeBorder(
                         isSelected
                             ? card.tint.color
                             : isHovering
                                 ? card.tint.color.opacity(0.75)
-                            : Appearance.shared.theme.cardBorder,
+                            : CardChrome.border,
                         lineWidth: isSelected ? 3 : isHovering ? 2 : highContrast ? 2 : 1
                     )
 
