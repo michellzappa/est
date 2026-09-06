@@ -1,5 +1,13 @@
 import SwiftUI
+import UIKit
 import Observation
+
+/// Builds a color that resolves at draw time, so it follows the active
+/// appearance. A plain `Color(red:green:blue:)` is fixed and stays light in
+/// dark mode.
+private func dynamicColor(light: UIColor, dark: UIColor) -> Color {
+    Color(UIColor { $0.userInterfaceStyle == .dark ? dark : light })
+}
 
 /// User-facing look settings, persisted in UserDefaults. Card tint colors
 /// flow through the active theme (`Card.Tint.color` delegates here), so a
@@ -25,6 +33,28 @@ final class Appearance {
             case .automatic: systemValue
             case .on: true
             case .off: false
+            }
+        }
+    }
+
+    /// Light and dark mode. `system` follows the device; the other two
+    /// override it for EST alone.
+    enum ColorSchemeSetting: Int, CaseIterable {
+        case system, light, dark
+
+        var name: String {
+            switch self {
+            case .system: "System"
+            case .light: "Light"
+            case .dark: "Dark"
+            }
+        }
+
+        var colorScheme: ColorScheme? {
+            switch self {
+            case .system: nil
+            case .light: .light
+            case .dark: .dark
             }
         }
     }
@@ -132,16 +162,28 @@ final class Appearance {
         /// advantage.
         var cardSurface: Color {
             switch self {
-            case .dusk: Color(red: 0.96, green: 0.94, blue: 0.88)
+            case .dusk: dynamicColor(
+                light: UIColor(red: 0.96, green: 0.94, blue: 0.88, alpha: 1),
+                dark: UIColor(red: 0.20, green: 0.18, blue: 0.15, alpha: 1)
+            )
             default: Color(.secondarySystemGroupedBackground)
             }
         }
 
         var cardBorder: Color {
             switch self {
-            case .dusk: Color(red: 0.68, green: 0.47, blue: 0.16).opacity(0.55)
+            case .dusk: dynamicColor(
+                light: UIColor(red: 0.68, green: 0.47, blue: 0.16, alpha: 0.55),
+                dark: UIColor(red: 0.85, green: 0.66, blue: 0.30, alpha: 0.55)
+            )
             default: Color.primary.opacity(0.12)
             }
+        }
+    }
+
+    var colorSchemeSetting: ColorSchemeSetting {
+        didSet {
+            UserDefaults.standard.set(colorSchemeSetting.rawValue, forKey: "appearance.colorScheme")
         }
     }
 
@@ -191,17 +233,25 @@ final class Appearance {
     /// warm surface is a separate, explicitly chosen supporter cosmetic.
     var gameBackground: Color {
         warmBackgroundEnabled
-            ? Color(red: 0.93, green: 0.91, blue: 0.85)
+            ? dynamicColor(
+                light: UIColor(red: 0.93, green: 0.91, blue: 0.85, alpha: 1),
+                dark: UIColor(red: 0.15, green: 0.13, blue: 0.11, alpha: 1)
+            )
             : Color(.systemGroupedBackground)
     }
 
-    /// All themes follow the device's appearance; none forces a background
-    /// color scheme when selected.
+    /// Themes never force light or dark. Only this setting does, and `system`
+    /// leaves the device in charge.
     var preferredColorScheme: ColorScheme? {
-        nil
+        colorSchemeSetting.colorScheme
     }
 
     private init() {
+        // Raw value 0 is `system`, so an install that never chose a mode
+        // keeps following the device.
+        colorSchemeSetting = ColorSchemeSetting(
+            rawValue: UserDefaults.standard.integer(forKey: "appearance.colorScheme")
+        ) ?? .system
         // New installs get pinstriped. An explicit choice still wins, so a
         // player who picked shaded keeps it.
         let storedFill = UserDefaults.standard.object(forKey: "appearance.fillStyle") as? Int

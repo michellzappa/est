@@ -74,7 +74,7 @@
 		28B5BFD0B635B12A0E8D4FBC /* Telemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Telemetry.swift; sourceTree = "<group>"; };
 		299F58ECE893660C9BEABFEB /* PilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilesView.swift; sourceTree = "<group>"; };
 		2B10BBBD73B61C9E649C8A41 /* EST.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EST.entitlements; sourceTree = "<group>"; };
-		315EDDEAAD8AC89CBE742294 /* EST.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = EST.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		315EDDEAAD8AC89CBE742294 /* EST.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EST.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		31B78AECE33CDD83CD8B4356 /* SupportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportView.swift; sourceTree = "<group>"; };
 		3403B1A46938054B8158671C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3729F9A3C5BF635C27E38EB1 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
@@ -557,7 +557,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EST/EST.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 141;
+				CURRENT_PROJECT_VERSION = 142;
+				DEVELOPMENT_TEAM = 992N457T8D;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = EST;
 				INFOPLIST_KEY_ESTFeedbackEndpoint = "https://est-telemetry.envisioning.workers.dev/v1/feedback";
@@ -584,7 +585,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EST/EST.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 141;
+				CURRENT_PROJECT_VERSION = 142;
+				DEVELOPMENT_TEAM = 992N457T8D;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = EST;
 				INFOPLIST_KEY_ESTFeedbackEndpoint = "https://est-telemetry.envisioning.workers.dev/v1/feedback";

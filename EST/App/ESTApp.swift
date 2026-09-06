@@ -121,7 +121,8 @@ struct RootView: View {
                 transaction.disablesAnimations = true
             }
         }
-        // Themes do not force light or dark mode; this follows the device.
+        // Follows the device unless the player picks Light or Dark in
+        // Settings. Themes never force a mode.
         .preferredColorScheme(Appearance.shared.preferredColorScheme)
         .statusBarHidden(shouldHideGameChrome)
         .sheet(isPresented: $showMatchmaker) {

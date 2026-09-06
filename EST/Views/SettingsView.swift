@@ -20,6 +20,19 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Appearance") {
+                    Picker("Appearance", selection: $appearance.colorSchemeSetting) {
+                        ForEach(Appearance.ColorSchemeSetting.allCases, id: \.self) { setting in
+                            Text(setting.name).tag(setting)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text("System follows the device. Light and Dark override it for EST only.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Fill") {
                     Picker("Fill style", selection: $appearance.fillStyle) {
                         ForEach(Appearance.FillStyle.allCases, id: \.self) { style in
